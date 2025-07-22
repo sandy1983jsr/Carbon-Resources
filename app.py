@@ -202,14 +202,21 @@ if st.button("Run Analysis"):
         st.subheader("Visualization")
         # Add furnace optimization visualizations as needed
 
+
     with tab5:
         st.header("🔮 What-if Analysis")
         st.write("Scenarios:")
-        for s in scenarios:
-            st.info(f"Scenario: {s.get('change','')} - Impact: {s.get('impact','')}")
+
+        # Display all scenarios as a DataFrame using the latest WhatIfEngine output
+        scenarios_df = pd.DataFrame(scenarios)
+        st.dataframe(scenarios_df)
+
         st.write("Results:")
-        st.dataframe(pd.DataFrame(whatif_results))
-        # Add what-if scenario visualizations as needed
+        # whatif_results is expected to be a dict like {"scenarios": scenarios}
+        if whatif_results and whatif_results.get("scenarios"):
+            st.dataframe(pd.DataFrame(whatif_results["scenarios"]))
+        else:
+            st.info("No what-if results available.")
 
     with tab6:
         st.header("🧑‍🔬 Recommendations")
