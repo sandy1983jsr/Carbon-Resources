@@ -1,6 +1,8 @@
 import streamlit as st
-import tempfile
+import pandas as pd
+import numpy as np
 import os
+import tempfile
 import yaml
 
 from modules.data_loader import DataLoader
@@ -12,15 +14,29 @@ from modules.electrode_optimization import ElectrodeOptimization
 from modules.process_integration import ProcessIntegration
 from modules.what_if_engine import WhatIfEngine
 
-# ...other imports...
+# Optional: Visualization, validation, benchmarking, recommendations, etc.
+# import modules.visualization as viz
+# import modules.validation as validation
+# import modules.benchmarking as benchmarking
+# import modules.recommendations as recommendations
+# import modules.action_tracker as action_tracker
+# import modules.savings_tracker as savings_tracker
 
-st.title("Consulting Dashboard")
+st.set_page_config(page_title="Ferro Alloy Consulting Dashboard", layout="wide")
 
+st.title("Ferro Alloy Consulting Dashboard")
+st.write("Upload operational CSVs or use random demo data to analyze energy, material, and cost opportunities.")
+
+# --- Sidebar: Data source selection ---
 with st.sidebar:
-    st.header("Upload Data Files")
-    uploaded_files = {
-        fname: st.file_uploader(f"{label} ({fname})", type="csv")
-        for fname, label in [
+    st.header("Data Source")
+    use_random = st.checkbox("Use random demo data (no file upload)", value=False)
+    st.markdown("---")
+
+    uploaded_files = {}
+    if not use_random:
+        st.header("Upload Data Files")
+        required_files = [
             ("energy_consumption.csv", "Energy Consumption"),
             ("production.csv", "Production"),
             ("material_input.csv", "Material Input"),
@@ -28,42 +44,72 @@ with st.sidebar:
             ("furnace_data.csv", "Furnace Data"),
             ("process_data.csv", "Process Data"),
         ]
-    }
-    config_file = st.file_uploader("Config file (optional)", type="yaml")
+        for fname, label in required_files:
+            uploaded_files[fname] = st.file_uploader(f"{label} ({fname})", type="csv")
+        config_file = st.file_uploader("Config file (optional)", type="yaml")
+        st.markdown("---")
+        st.info("Tip: For best results, upload all six files.")
 
+        # Show preview of each CSV after upload
+        for fname, file in uploaded_files.items():
+            if file:
+                st.markdown(f"**Preview: {fname}**")
+                df = pd.read_csv(file)
+                st.dataframe(df.head())
+                file.seek(0)  # Reset pointer for actual loading
+
+# --- Data loading logic ---
 if st.button("Run Analysis"):
-    # Save uploaded files to a temp directory
-    temp_dir = tempfile.mkdtemp()
-    data_dir = os.path.join(temp_dir, "data")
-    os.makedirs(data_dir, exist_ok=True)
-    for fname, file in uploaded_files.items():
-        if file:
-            with open(os.path.join(data_dir, fname), "wb") as out:
-                out.write(file.getbuffer())
-    config_path = os.path.join(temp_dir, "config.yaml")
-    if config_file:
-        with open(config_path, "wb") as out:
-            out.write(config_file.getbuffer())
+    if use_random:
+        from modules.random_data import generate_random_datasets
+        datasets = generate_random_datasets(n_hours=24)
+        st.success("Random demo data generated!")
+        for k, df in datasets.items():
+            st.write(f"**{k}** sample data:")
+            st.dataframe(df.head())
     else:
-        # Create a simple config if none uploaded
-        auto_config = {
-            "data_files": {
-                "energy_consumption": {"filename": "energy_consumption.csv", "date_columns": ["timestamp"]},
-                "production": {"filename": "production.csv", "date_columns": ["timestamp"]},
-                "material_input": {"filename": "material_input.csv", "date_columns": ["timestamp"]},
-                "material_output": {"filename": "material_output.csv", "date_columns": ["timestamp"]},
-                "furnace_data": {"filename": "furnace_data.csv", "date_columns": ["timestamp"]},
-                "process_data": {"filename": "process_data.csv", "date_columns": ["timestamp"]},
+        # Save uploaded files to temp directory
+        temp_dir = tempfile.mkdtemp()
+        data_dir = os.path.join(temp_dir, "data")
+        os.makedirs(data_dir, exist_ok=True)
+        for fname, file in uploaded_files.items():
+            if file:
+                with open(os.path.join(data_dir, fname), "wb") as out:
+                    out.write(file.getbuffer())
+        config_path = os.path.join(temp_dir, "config.yaml")
+        if 'config_file' in locals() and config_file:
+            with open(config_path, "wb") as out:
+                out.write(config_file.getbuffer())
+        else:
+            auto_config = {
+                "data_files": {
+                    "energy_consumption": {"filename": "energy_consumption.csv", "date_columns": ["timestamp"]},
+                    "production": {"filename": "production.csv", "date_columns": ["timestamp"]},
+                    "material_input": {"filename": "material_input.csv", "date_columns": ["timestamp"]},
+                    "material_output": {"filename": "material_output.csv", "date_columns": ["timestamp"]},
+                    "furnace_data": {"filename": "furnace_data.csv", "date_columns": ["timestamp"]},
+                    "process_data": {"filename": "process_data.csv", "date_columns": ["timestamp"]},
+                }
             }
-        }
-        with open(config_path, "w") as out:
-            yaml.dump(auto_config, out)
+            with open(config_path, "w") as out:
+                yaml.dump(auto_config, out)
+        data_loader = DataLoader(data_dir=data_dir, config_path=config_path)
+        datasets = data_loader.load_all_datasets()
+        st.success("Data loaded!")
+        st.write("Loaded datasets:", list(datasets.keys()))
+        for k, df in datasets.items():
+            if df is not None:
+                st.write(f"{k}: Shape {df.shape}")
+                st.dataframe(df.head())
+            else:
+                st.warning(f"{k}: Not loaded")
 
-    # --- HERE IS THE KEY CHANGE: USE THE LOADER ---
-    data_loader = DataLoader(data_dir=data_dir, config_path=config_path)
-    datasets = data_loader.load_all_datasets()  # This is a dict of {name: DataFrame}
+    # If no data, stop
+    if not datasets or all(df is None or df.empty for df in datasets.values()):
+        st.error("No data loaded. Please upload all required CSV files or use random demo data.")
+        st.stop()
 
-    # --- NOW PASS datasets TO MODULES ---
+    # --- Analyses ---
     baseline = BaselineAssessment(datasets)
     baseline_results = baseline.run_assessment()
     energy = EnergyAnalysis(datasets)
@@ -80,7 +126,49 @@ if st.button("Run Analysis"):
     scenarios = whatif.generate_scenarios()
     whatif.run_scenarios(scenarios)
 
-    # ...rest of your code, all modules use datasets from loader...
+    # --- Simple Dashboard Tabs (minimal, expandable) ---
+    tab1, tab2, tab3 = st.tabs([
+        "Energy Dashboard", "Material Dashboard", "Process & Furnace"
+    ])
+
+    with tab1:
+        st.header("⚡ Energy Dashboard")
+        st.metric("Total Energy Consumption (kWh)", f"{baseline_results.get('energy_total',0):,.0f}")
+        st.metric("Average Power Factor", f"{energy_results.get('avg_pf',0):.2f}")
+        st.metric("Energy Intensity (kWh/ton)", f"{baseline_results.get('energy_intensity_kwh_per_ton',0):.2f}")
+
+        if "area" in energy_results and energy_results["area"] is not None:
+            st.subheader("Energy by Area")
+            st.dataframe(energy_results["area"])
+
+        if "hourly" in energy_results and energy_results["hourly"] is not None:
+            st.subheader("Hourly Energy Consumption (kWh)")
+            st.line_chart(energy_results["hourly"])
+
+        if "daily" in energy_results and energy_results["daily"] is not None:
+            st.subheader("Daily Energy Consumption")
+            st.bar_chart(energy_results["daily"])
+
+    with tab2:
+        st.header("🧱 Material Dashboard")
+        st.metric("Material Input (tons)", f"{baseline_results.get('material_input_total',0):.2f}")
+        st.metric("Material Output (tons)", f"{baseline_results.get('material_output_total',0):.2f}")
+        st.metric("Material Yield (%)", f"{100*(baseline_results.get('material_yield',0)):.2f}")
+        st.metric("Material Loss (%)", f"{baseline_results.get('material_loss_pct',0):.2f}")
+        if "input_by_type" in material_results and material_results["input_by_type"] is not None:
+            st.subheader("Material Input Split")
+            st.dataframe(pd.DataFrame.from_dict(material_results["input_by_type"], orient="index", columns=["tons"]))
+
+    with tab3:
+        st.header("🔥 Process & Furnace Dashboard")
+        st.metric("Furnace Mean Temp (°C)", f"{furnace_results.get('mean_temp',0):.0f}")
+        st.metric("Furnace PF", f"{furnace_results.get('mean_pf',0):.2f}")
+        if electrode_results.get("paste_consumption"):
+            st.metric("Electrode Paste (kg/ton)", f"{electrode_results['paste_consumption'].get('specific_consumption',0):.2f}")
+        if process_results.get("equipment_utilization"):
+            st.metric("Equipment Utilization (%)", f"{100*process_results['equipment_utilization'].get('overall_utilization',0):.2f}")
+
+    st.success("Analysis complete! Explore the tabs above for results.")
 
 else:
-    st.info("Upload all files and click Run Analysis.")
+    st.info("Upload all required CSVs or select random demo data, then click **Run Analysis**.")
