@@ -153,3 +153,4 @@ class WhatIfEngine:
 
     def run_scenarios(self, scenarios):
         self.results = {"scenarios": scenarios}
+        return self.results
