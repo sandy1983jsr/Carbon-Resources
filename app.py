@@ -215,12 +215,29 @@ if st.button("Run Analysis"):
 
     with tab7:
         st.header("💲 Estimated Savings")
-        st.info("Savings analysis module is currently unavailable.")
-
+        if 'estimated_savings' in datasets and not datasets['estimated_savings'].empty:
+            st.dataframe(datasets['estimated_savings'])
+            fig = visualization.plot_savings_over_time(datasets['estimated_savings'])
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No estimated savings data available.")
+        
     with tab8:
         st.header("✔️ Data Validation")
-        st.info("Validation module is currently unavailable.")
-
+        validation_report = {}
+        for name, df in datasets.items():
+            if isinstance(df, pd.DataFrame):
+                validation_report[name] = {
+                    "rows": len(df),
+                    "missing_values": int(df.isnull().sum().sum())
+                }
+        if validation_report:
+            st.write("Validation Report:")
+            st.json(validation_report)
+        else:
+            st.info("No data available for validation.")
+        
     with tab9:
         st.header("📊 Benchmarking")
         if 'benchmark_data' in datasets and not datasets['benchmark_data'].empty:
