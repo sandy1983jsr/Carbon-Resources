@@ -78,6 +78,30 @@ def generate_random_datasets(n_hours=24):
             "", "All OK", "Follow-up needed", "Delayed due to supply"], size=10)
     }).sort_values("timestamp").reset_index(drop=True)
 
+    # What-if Analysis Data
+    what_if_analysis = [
+        {
+            "scenario": "Reduce Furnace Setpoint by 20°C",
+            "expected_energy_savings_%": 3.8,
+            "expected_cost_savings_%": 2.2,
+            "impact": "Lower energy consumption, potential minor yield loss"
+        },
+        {
+            "scenario": "Increase Shift Length by 2 hours",
+            "expected_energy_savings_%": 0.0,
+            "expected_cost_savings_%": 1.0,
+            "impact": "More production per shift, minor maintenance risk"
+        }
+    ]
+
+    # Recommendations Data
+    recommendations = [
+        "Optimize furnace temperature setpoint to reduce energy consumption.",
+        "Regularly monitor electrode paste consumption for early anomaly detection.",
+        "Improve process area insulation to minimize heat loss.",
+        "Review batch weight targets for improved material yield."
+    ]
+
     return {
         "energy_consumption": energy_consumption,
         "production": production,
@@ -88,4 +112,6 @@ def generate_random_datasets(n_hours=24):
         "estimated_savings": estimated_savings,
         "benchmark_data": benchmarking_data,
         "action_events": action_tracker,
+        "what_if_analysis": what_if_analysis,
+        "recommendations": recommendations,
     }
