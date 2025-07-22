@@ -236,7 +236,6 @@ if st.button("Run Analysis"):
             st.info("No action tracker events available.")
             st.header("📝 Action Tracker")
 
-st.success("Analysis complete! Explore the tabs above for results.")
-
+    st.success("Analysis complete! Explore the tabs above for results.")
 else:
     st.info("Upload all required CSVs or select random demo data, then click **Run Analysis**.")
