@@ -218,3 +218,46 @@ def plot_savings_over_time(savings_df):
         title_font_color=COLOR_PALETTE["orange"],
     )
     return fig
+
+def plot_furnace_optimization(furnace_results):
+    """
+    Plots a before/after comparison for furnace optimization, e.g., temperature profile.
+    Expects furnace_results["temperature_profile"] to be a dict with keys "timestamp", "before", "after".
+    """
+    if (not isinstance(furnace_results, dict) or
+        "temperature_profile" not in furnace_results or
+        furnace_results["temperature_profile"] is None):
+        return None
+
+    profile = furnace_results["temperature_profile"]
+    if not all(k in profile for k in ("timestamp", "before", "after")):
+        return None
+
+    df = pd.DataFrame({
+        "timestamp": profile["timestamp"],
+        "Before Optimization": profile["before"],
+        "After Optimization": profile["after"],
+    })
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=df["timestamp"], y=df["Before Optimization"],
+        mode="lines+markers", name="Before Optimization", 
+        line=dict(color=COLOR_PALETTE["grey"], dash="dot")
+    ))
+    fig.add_trace(go.Scatter(
+        x=df["timestamp"], y=df["After Optimization"],
+        mode="lines+markers", name="After Optimization", 
+        line=dict(color=COLOR_PALETTE["orange"])
+    ))
+
+    fig.update_layout(
+        title="Furnace Temperature Profile: Before vs After Optimization",
+        xaxis_title="Time",
+        yaxis_title="Temperature (°C)",
+        plot_bgcolor=COLOR_PALETTE["background"],
+        paper_bgcolor=COLOR_PALETTE["background"],
+        font_color=COLOR_PALETTE["text"],
+        title_font_color=COLOR_PALETTE["orange"],
+    )
+    return fig
