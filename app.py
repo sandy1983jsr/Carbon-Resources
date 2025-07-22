@@ -205,19 +205,12 @@ if st.button("Run Analysis"):
 
     with tab5:
         st.header("🔮 What-if Analysis")
-        st.write("Scenarios:")
-
-        # Display all scenarios as a DataFrame using the latest WhatIfEngine output
-        scenarios_df = pd.DataFrame(scenarios)
-        st.dataframe(scenarios_df)
-
-        st.write("Results:")
-        # whatif_results is expected to be a dict like {"scenarios": scenarios}
+        st.write("Simulated Scenario Results (based on your actual data):")
         if whatif_results and whatif_results.get("scenarios"):
             st.dataframe(pd.DataFrame(whatif_results["scenarios"]))
         else:
             st.info("No what-if results available.")
-
+        
     with tab6:
         st.header("🧑‍🔬 Recommendations")
         if recs:
