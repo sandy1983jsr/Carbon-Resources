@@ -15,7 +15,15 @@ from modules.electrode_optimization import ElectrodeOptimization
 from modules.process_integration import ProcessIntegration
 from modules.what_if_engine import WhatIfEngine
 import modules.visualization as visualization
-import modules.recommendations as recommendations  # Function-based, not class-based
+import modules.recommendations as recommendations  # Function-based
+
+def safe_number(val, default=0):
+    try:
+        if val is None or (isinstance(val, float) and np.isnan(val)):
+            return default
+        return float(val)
+    except (TypeError, ValueError):
+        return default
 
 st.set_page_config(page_title="Ferro Alloy Consulting Dashboard", layout="wide")
 st.title("Ferro Alloy Consulting Dashboard")
@@ -135,13 +143,13 @@ if st.button("Run Analysis"):
         st.header("⚡ Energy Dashboard")
         # Defensive checks for baseline_results and energy_results
         if isinstance(baseline_results, dict):
-            total_energy = baseline_results.get('energy_total', 0)
-            energy_intensity = baseline_results.get('energy_intensity_kwh_per_ton', 0)
+            total_energy = safe_number(baseline_results.get('energy_total', 0))
+            energy_intensity = safe_number(baseline_results.get('energy_intensity_kwh_per_ton', 0))
         else:
             total_energy = 0
             energy_intensity = 0
         if isinstance(energy_results, dict):
-            avg_pf = energy_results.get('avg_pf', 0)
+            avg_pf = safe_number(energy_results.get('avg_pf', 0))
         else:
             avg_pf = 0
 
@@ -169,10 +177,10 @@ if st.button("Run Analysis"):
     with tab2:
         st.header("🧱 Material Dashboard")
         if isinstance(baseline_results, dict):
-            material_input_total = baseline_results.get('material_input_total', 0)
-            material_output_total = baseline_results.get('material_output_total', 0)
-            material_yield = baseline_results.get('material_yield', 0)
-            material_loss_pct = baseline_results.get('material_loss_pct', 0)
+            material_input_total = safe_number(baseline_results.get('material_input_total', 0))
+            material_output_total = safe_number(baseline_results.get('material_output_total', 0))
+            material_yield = safe_number(baseline_results.get('material_yield', 0))
+            material_loss_pct = safe_number(baseline_results.get('material_loss_pct', 0))
         else:
             material_input_total = 0
             material_output_total = 0
@@ -198,8 +206,8 @@ if st.button("Run Analysis"):
     with tab3:
         st.header("🔥 Process & Furnace Dashboard")
         if isinstance(furnace_results, dict):
-            mean_temp = furnace_results.get('mean_temp', 0)
-            mean_pf = furnace_results.get('mean_pf', 0)
+            mean_temp = safe_number(furnace_results.get('mean_temp', 0))
+            mean_pf = safe_number(furnace_results.get('mean_pf', 0))
             recommendations_list = furnace_results.get("recommendations", [])
         else:
             mean_temp = 0
@@ -208,9 +216,9 @@ if st.button("Run Analysis"):
         st.metric("Furnace Mean Temp (°C)", f"{mean_temp:.0f}")
         st.metric("Furnace PF", f"{mean_pf:.2f}")
         if isinstance(electrode_results, dict) and electrode_results.get("paste_consumption"):
-            st.metric("Electrode Paste (kg/ton)", f"{electrode_results['paste_consumption'].get('specific_consumption',0):.2f}")
+            st.metric("Electrode Paste (kg/ton)", f"{safe_number(electrode_results['paste_consumption'].get('specific_consumption',0)):.2f}")
         if isinstance(process_results, dict) and process_results.get("equipment_utilization"):
-            st.metric("Equipment Utilization (%)", f"{100*process_results['equipment_utilization'].get('overall_utilization',0):.2f}")
+            st.metric("Equipment Utilization (%)", f"{100*safe_number(process_results['equipment_utilization'].get('overall_utilization',0)):.2f}")
         st.subheader("Visualization")
         # Add furnace/process plots as needed
 
