@@ -15,8 +15,7 @@ from modules.electrode_optimization import ElectrodeOptimization
 from modules.process_integration import ProcessIntegration
 from modules.what_if_engine import WhatIfEngine
 import modules.visualization as visualization
-import modules.recommendations as recommendations
-# ActionTracker import removed
+import modules.recommendations as recommendations  # Import as module (function-based, not class-based)
 
 st.set_page_config(page_title="Ferro Alloy Consulting Dashboard", layout="wide")
 st.title("Ferro Alloy Consulting Dashboard")
@@ -119,8 +118,14 @@ if st.button("Run Analysis"):
     whatif = WhatIfEngine(datasets)
     scenarios = whatif.generate_scenarios()
     whatif_results = whatif.run_scenarios(scenarios)
-    recs = recommendations.Recommendations(datasets).generate()
-    # ActionTracker removed
+
+    # --- Recommendations (function-based) ---
+    # Instead of: recs = recommendations.Recommendations(datasets).generate()
+    # Use:
+    if hasattr(recommendations, "generate"):
+        recs = recommendations.generate(datasets)
+    else:
+        recs = []
 
     # --- Dashboard Tabs ---
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
@@ -221,7 +226,6 @@ if st.button("Run Analysis"):
         st.info("Benchmarking module is currently unavailable.")
         st.header("📝 Action Tracker")
         st.info("Action Tracker module is currently unavailable.")
-        # The add action button is removed since ActionTracker is unavailable.
 
     st.success("Analysis complete! Explore the tabs above for results.")
 
