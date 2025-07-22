@@ -14,12 +14,11 @@ from modules.furnace_optimization import FurnaceOptimization
 from modules.electrode_optimization import ElectrodeOptimization
 from modules.process_integration import ProcessIntegration
 from modules.what_if_engine import WhatIfEngine
-from modules.savings_tracker import SavingsTracker
 from modules.validation import Validation
 from modules.benchmarking import Benchmarking
 from modules.action_tracker import ActionTracker
 import modules.visualization as visualization
-import modules.recommendations as recommendations  # <-- Import as module
+import modules.recommendations as recommendations
 
 st.set_page_config(page_title="Ferro Alloy Consulting Dashboard", layout="wide")
 st.title("Ferro Alloy Consulting Dashboard")
@@ -122,8 +121,8 @@ if st.button("Run Analysis"):
     whatif = WhatIfEngine(datasets)
     scenarios = whatif.generate_scenarios()
     whatif_results = whatif.run_scenarios(scenarios)
-    recs = recommendations.Recommendations(datasets).generate()  # <-- Use Recommendations class from the module
-    savings_results = SavingsTracker(datasets).calculate()
+    recs = recommendations.Recommendations(datasets).generate()
+    # No SavingsTracker import/use
     validation_results = Validation(datasets).validate()
     benchmarking_results = Benchmarking(datasets).compare()
     actions = ActionTracker().get_actions()
@@ -216,8 +215,7 @@ if st.button("Run Analysis"):
 
     with tab7:
         st.header("💲 Estimated Savings")
-        st.metric("Potential Savings (USD)", f"${savings_results.get('estimated_savings_usd', 0):,.2f}")
-        # Add cumulative savings chart, if desired
+        st.info("Savings analysis module is currently unavailable.")
 
     with tab8:
         st.header("✔️ Data Validation")
