@@ -6,4 +6,5 @@ plotly
 scikit-learn
 matplotlib
 seaborn
-statsmodels
+pdfkit
+openpyxl
