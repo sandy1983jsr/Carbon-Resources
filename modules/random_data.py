@@ -128,13 +128,13 @@ def generate_random_datasets(n_hours=24*7, freq='H'):
 
     # --- Add sample furnace optimization data here ---
     # Simulate before/after temperature profile for optimization visualization
-    n_opt_points = 24
+    # Extended to 72 points (3 days, hourly)
+    n_opt_points = 72
     now = datetime.now()
     opt_timestamps = [now - timedelta(hours=i) for i in reversed(range(n_opt_points))]
     temp_before = np.random.normal(1520, 20, n_opt_points)
     temp_after = temp_before - np.random.uniform(10, 25, n_opt_points)
 
-    # Example: additional metrics can be added as needed
     furnace_optimization = {
         "mean_temp": float(np.mean(temp_after)),
         "mean_pf": float(np.mean(np.random.uniform(0.88, 0.94, n_opt_points))),
@@ -158,5 +158,5 @@ def generate_random_datasets(n_hours=24*7, freq='H'):
         'process_data': df_process,
         'action_events': df_actions,
         'benchmark_data': df_benchmark,
-        'furnace_optimization': furnace_optimization  # <--- ADDED: for use in optimized demo
+        'furnace_optimization': furnace_optimization  # Unchanged, just more data points
     }
