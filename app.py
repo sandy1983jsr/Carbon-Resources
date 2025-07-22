@@ -1,6 +1,6 @@
 """
-Ferro Alloy Plant Analytics & Optimization
-Main application file with Streamlit interface
+Ferro Alloy Plant Optimization System - Main Application
+Streamlit interface for data upload, analysis and visualization
 """
 import streamlit as st
 import pandas as pd
@@ -8,8 +8,10 @@ import numpy as np
 import yaml
 import os
 import tempfile
-from datetime import datetime
-import matplotlib.pyplot as plt
+import datetime
+import plotly.express as px
+import plotly.graph_objects as go
+from pathlib import Path
 
 from modules.data_loader import DataLoader
 from modules.baseline_assessment import BaselineAssessment
@@ -23,317 +25,462 @@ from modules.visualization import DashboardGenerator
 
 # Set page configuration
 st.set_page_config(
-    page_title="Ferro Alloy Plant Optimization", 
+    page_title="Ferro Alloy Plant Optimization",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Apply custom styling with orange/grey/white theme
-st.markdown("""
-<style>
-    .main {background-color: #FFFFFF;}
-    .stApp {background-color: #FFFFFF;}
-    h1 {color: #FF9800;}
-    h2 {color: #424242;}
-    h3 {color: #616161;}
-    .stButton>button {
-        background-color: #FF9800;
+# Define color palette
+COLOR_PALETTE = {
+    'primary': '#FF9800',    # Orange
+    'secondary': '#9E9E9E',  # Grey
+    'tertiary': '#424242',   # Dark Grey
+    'background': '#FFFFFF', # White
+    'text': '#212121',       # Very Dark Grey
+}
+
+# Custom CSS
+st.markdown(f"""
+    <style>
+    .main {{background-color: {COLOR_PALETTE['background']}}}
+    .stApp {{background-color: {COLOR_PALETTE['background']}}}
+    h1, h2, h3 {{color: {COLOR_PALETTE['tertiary']}}}
+    .stButton>button {{
+        background-color: {COLOR_PALETTE['primary']};
         color: white;
-    }
-    .stProgress .st-bo {
-        background-color: #FF9800;
-    }
-    .sidebar .sidebar-content {
-        background-color: #F5F5F5;
-    }
-</style>
+    }}
+    .stProgress > div > div > div > div {{
+        background-color: {COLOR_PALETTE['primary']};
+    }}
+    </style>
 """, unsafe_allow_html=True)
 
-# Header
-st.title("Ferro Alloy Plant Analytics & Optimization")
-st.markdown("### Digital energy and materials efficiency solution")
+# Page header
+st.title("Ferro Alloy Plant Optimization System")
+st.write("Upload plant data files to analyze energy and material efficiency and identify optimization opportunities.")
 
-# Sidebar with upload options
-st.sidebar.header("Upload Data Files")
-st.sidebar.markdown("Upload your data files or use sample data")
+# Create sidebar
+st.sidebar.image("https://img.icons8.com/color/96/000000/manufacturing.png", width=80)
+st.sidebar.title("Carbon Resources")
+st.sidebar.write("Digital Energy & Materials Analytics")
+st.sidebar.markdown("---")
 
-# Create a temporary directory to store uploaded files
+# Create tabs for different sections of the app
+tab1, tab2, tab3 = st.tabs(["Data Upload", "Analysis & Results", "What-If Scenarios"])
+
+# Global variables to store analysis results
+datasets = {}
+baseline_results = {}
+energy_results = {}
+material_results = {}
+furnace_results = {}
+electrode_results = {}
+process_results = {}
+scenarios = []
+analysis_complete = False
+
+# Create a temporary directory for file uploads
 temp_dir = tempfile.mkdtemp()
-os.makedirs(os.path.join(temp_dir, "outputs"), exist_ok=True)
+data_dir = os.path.join(temp_dir, "data")
+output_dir = os.path.join(temp_dir, "output")
+os.makedirs(data_dir, exist_ok=True)
+os.makedirs(output_dir, exist_ok=True)
 
-# Define required file uploads
-required_files = [
-    ("energy_consumption.csv", "Energy Consumption Data"),
-    ("production.csv", "Production Data"),
-    ("material_input.csv", "Material Input Data"),
-    ("material_output.csv", "Material Output Data"),
-    ("furnace_data.csv", "Furnace Operation Data"),
-    ("process_data.csv", "Process Equipment Data")
-]
-
-# Create file upload widgets
-uploaded_files = {}
-use_sample_data = st.sidebar.checkbox("Use Sample Data", value=True)
-
-if use_sample_data:
-    st.sidebar.success("Using sample data for demonstration")
-    data_dir = "sample_data"
-else:
-    data_dir = temp_dir
-    for file_name, file_desc in required_files:
-        uploaded_file = st.sidebar.file_uploader(f"Upload {file_desc}", type=["csv"], key=file_name)
-        
-        if uploaded_file is not None:
-            # Save the uploaded file to the temporary directory
-            with open(os.path.join(temp_dir, file_name), "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            uploaded_files[file_name] = True
-        else:
-            uploaded_files[file_name] = False
-
-# Config options
-config_option = st.sidebar.selectbox(
-    "Configuration",
-    ["Default", "Custom"],
-    index=0
-)
-
-if config_option == "Custom":
-    uploaded_config = st.sidebar.file_uploader("Upload custom config", type=["yaml"])
-    if uploaded_config is not None:
-        config_path = os.path.join(temp_dir, "custom_config.yaml")
-        with open(config_path, "wb") as f:
-            f.write(uploaded_config.getbuffer())
+with tab1:
+    st.header("Data Upload")
+    
+    # Use sample data option
+    use_sample = st.checkbox("Use sample data for demonstration")
+    
+    if use_sample:
+        st.success("Sample data will be used for analysis")
+        # Copy sample data files from sample_data directory
+        import shutil
+        sample_dir = "sample_data"
+        if os.path.exists(sample_dir):
+            for file in os.listdir(sample_dir):
+                if file.endswith(".csv"):
+                    shutil.copy(os.path.join(sample_dir, file), os.path.join(data_dir, file))
     else:
-        config_path = "config/default.yaml"
-else:
-    config_path = "config/default.yaml"
-
-# Main analysis section
-if st.sidebar.button("Run Analysis"):
-    if use_sample_data or all(uploaded_files.values()):
-        with st.spinner("Loading data..."):
-            data_loader = DataLoader(data_dir=data_dir, config_path=config_path)
-            datasets = data_loader.load_all_datasets()
-            st.success("Data loaded successfully")
+        # File upload section
+        col1, col2 = st.columns(2)
         
-        # Progress bar for analysis
-        progress_bar = st.progress(0)
+        with col1:
+            st.subheader("Energy Data")
+            energy_file = st.file_uploader("Upload Energy Consumption Data", type="csv", 
+                                          help="CSV with columns: timestamp, kwh_consumed, process_area, power_factor")
+            production_file = st.file_uploader("Upload Production Data", type="csv",
+                                             help="CSV with columns: timestamp, production_tons, product_type")
         
-        # Run analysis modules
-        analyses = {}
+        with col2:
+            st.subheader("Material Data")
+            material_input_file = st.file_uploader("Upload Material Input Data", type="csv",
+                                                 help="CSV with columns: timestamp, material_type, quantity_tons")
+            material_output_file = st.file_uploader("Upload Material Output Data", type="csv",
+                                                  help="CSV with columns: timestamp, product_type, quantity_tons")
         
-        with st.spinner("Running baseline assessment..."):
-            baseline = BaselineAssessment(datasets)
-            analyses['baseline_results'] = baseline.run_assessment()
-            progress_bar.progress(16)
+        col3, col4 = st.columns(2)
         
-        with st.spinner("Analyzing energy consumption..."):
-            energy = EnergyAnalysis(datasets)
-            analyses['energy_results'] = energy.analyze()
-            progress_bar.progress(32)
-        
-        with st.spinner("Analyzing material flow..."):
-            material = MaterialAnalysis(datasets)
-            analyses['material_results'] = material.analyze()
-            progress_bar.progress(48)
-        
-        with st.spinner("Optimizing furnace operation..."):
-            furnace = FurnaceOptimization(datasets)
-            analyses['furnace_results'] = furnace.optimize()
-            progress_bar.progress(64)
-        
-        with st.spinner("Optimizing electrode performance..."):
-            electrode = ElectrodeOptimization(datasets)
-            analyses['electrode_results'] = electrode.optimize()
-            progress_bar.progress(80)
-        
-        with st.spinner("Analyzing process integration..."):
-            process = ProcessIntegration(datasets)
-            analyses['process_results'] = process.optimize()
-            progress_bar.progress(90)
-        
-        with st.spinner("Running what-if scenarios..."):
-            what_if = WhatIfEngine(datasets)
-            scenarios = what_if.generate_scenarios()
-            what_if.run_scenarios(scenarios)
-            analyses['what_if_results'] = what_if.results
-            analyses['what_if_scenarios'] = scenarios
-            progress_bar.progress(100)
-        
-        # Generate dashboard
-        with st.spinner("Generating dashboards..."):
-            dashboard = DashboardGenerator(**analyses)
-            dashboard_path = os.path.join(temp_dir, "outputs", "dashboard")
-            os.makedirs(dashboard_path, exist_ok=True)
-            dashboard.generate_dashboard(dashboard_path)
-        
-        # Display results
-        st.markdown("## Analysis Results")
-        
-        # Create tabs for different result sections
-        tab1, tab2, tab3, tab4 = st.tabs([
-            "Executive Summary", 
-            "Energy Analysis", 
-            "Material Analysis",
-            "Optimization Scenarios"
-        ])
-        
-        with tab1:
-            st.header("Executive Summary")
+        with col3:
+            st.subheader("Process Data")
+            furnace_file = st.file_uploader("Upload Furnace Data", type="csv",
+                                          help="CSV with columns: timestamp, temperature, power_factor, etc.")
             
-            # Key metrics
+        with col4:
+            process_file = st.file_uploader("Upload Process Data", type="csv",
+                                          help="CSV with columns: timestamp, process_area, uptime_hours, etc.")
+        
+        # Upload config file (optional)
+        st.subheader("Configuration (Optional)")
+        config_file = st.file_uploader("Upload Configuration File", type="yaml")
+        
+        # Save uploaded files
+        if energy_file:
+            with open(os.path.join(data_dir, "energy_consumption.csv"), "wb") as f:
+                f.write(energy_file.getbuffer())
+        
+        if production_file:
+            with open(os.path.join(data_dir, "production.csv"), "wb") as f:
+                f.write(production_file.getbuffer())
+                
+        if material_input_file:
+            with open(os.path.join(data_dir, "material_input.csv"), "wb") as f:
+                f.write(material_input_file.getbuffer())
+                
+        if material_output_file:
+            with open(os.path.join(data_dir, "material_output.csv"), "wb") as f:
+                f.write(material_output_file.getbuffer())
+                
+        if furnace_file:
+            with open(os.path.join(data_dir, "furnace_data.csv"), "wb") as f:
+                f.write(furnace_file.getbuffer())
+                
+        if process_file:
+            with open(os.path.join(data_dir, "process_data.csv"), "wb") as f:
+                f.write(process_file.getbuffer())
+        
+        if config_file:
+            with open(os.path.join(temp_dir, "config.yaml"), "wb") as f:
+                f.write(config_file.getbuffer())
+            config_path = os.path.join(temp_dir, "config.yaml")
+        else:
+            # Use default config
+            config_path = "config/default.yaml"
+            if not os.path.exists(config_path):
+                # Create default config if it doesn't exist
+                os.makedirs("config", exist_ok=True)
+                with open(config_path, "w") as f:
+                    yaml.dump({
+                        "data_files": {
+                            "energy_consumption": {"filename": "energy_consumption.csv", "date_columns": ["timestamp"]},
+                            "production": {"filename": "production.csv", "date_columns": ["timestamp"]},
+                            "material_input": {"filename": "material_input.csv", "date_columns": ["timestamp"]},
+                            "material_output": {"filename": "material_output.csv", "date_columns": ["timestamp"]},
+                            "furnace_data": {"filename": "furnace_data.csv", "date_columns": ["timestamp"]},
+                            "process_data": {"filename": "process_data.csv", "date_columns": ["timestamp"]}
+                        }
+                    }, f)
+    
+    # Run analysis button
+    if st.button("Run Analysis", key="run_analysis"):
+        # Check if files exist
+        required_files = [
+            "energy_consumption.csv",
+            "production.csv",
+            "material_input.csv",
+            "material_output.csv",
+            "furnace_data.csv",
+            "process_data.csv"
+        ]
+        
+        missing_files = []
+        for file in required_files:
+            if not os.path.exists(os.path.join(data_dir, file)):
+                missing_files.append(file)
+        
+        if missing_files and not use_sample:
+            st.error(f"Missing required files: {', '.join(missing_files)}")
+        else:
+            # Load configuration
+            if not os.path.exists(config_path):
+                st.error("Configuration file not found.")
+            else:
+                with st.spinner("Loading data..."):
+                    # Initialize data loader
+                    data_loader = DataLoader(data_dir=data_dir, config_path=config_path)
+                    datasets = data_loader.load_all_datasets()
+                    
+                    if not datasets:
+                        st.error("Failed to load datasets. Check the data files.")
+                    else:
+                        # Run analyses
+                        progress_bar = st.progress(0)
+                        progress_text = st.empty()
+                        
+                        progress_text.text("Running baseline assessment...")
+                        baseline = BaselineAssessment(datasets)
+                        baseline_results = baseline.run_assessment()
+                        progress_bar.progress(16)
+                        
+                        progress_text.text("Analyzing energy consumption...")
+                        energy = EnergyAnalysis(datasets)
+                        energy_results = energy.analyze()
+                        progress_bar.progress(32)
+                        
+                        progress_text.text("Analyzing material flows...")
+                        material = MaterialAnalysis(datasets)
+                        material_results = material.analyze()
+                        progress_bar.progress(48)
+                        
+                        progress_text.text("Optimizing furnace operations...")
+                        furnace = FurnaceOptimization(datasets)
+                        furnace_results = furnace.optimize()
+                        progress_bar.progress(64)
+                        
+                        progress_text.text("Optimizing electrode operations...")
+                        electrode = ElectrodeOptimization(datasets)
+                        electrode_results = electrode.optimize()
+                        progress_bar.progress(80)
+                        
+                        progress_text.text("Optimizing process integration...")
+                        process = ProcessIntegration(datasets)
+                        process_results = process.optimize()
+                        progress_bar.progress(96)
+                        
+                        progress_text.text("Running what-if scenarios...")
+                        what_if = WhatIfEngine(datasets)
+                        scenarios = what_if.generate_scenarios()
+                        what_if.run_scenarios(scenarios)
+                        progress_bar.progress(100)
+                        
+                        progress_text.text("Generating reports and dashboards...")
+                        # Generate dashboard
+                        dashboard = DashboardGenerator(
+                            baseline_results=baseline_results,
+                            energy_results=energy_results,
+                            material_results=material_results,
+                            furnace_results=furnace_results,
+                            electrode_results=electrode_results,
+                            process_results=process_results,
+                            what_if_scenarios=scenarios
+                        )
+                        dashboard.generate_dashboard(output_dir)
+                        
+                        st.session_state["analysis_complete"] = True
+                        progress_text.text("Analysis complete!")
+                        
+                        # Switch to the Analysis tab
+                        st.experimental_rerun()
+
+with tab2:
+    st.header("Analysis Results")
+    
+    if "analysis_complete" in st.session_state and st.session_state["analysis_complete"]:
+        # Create subtabs for different analysis results
+        subtab1, subtab2, subtab3, subtab4 = st.tabs(["Energy", "Material", "Process", "Summary"])
+        
+        with subtab1:
+            st.subheader("Energy Analysis")
+            
+            # Create metrics for key findings
+            if energy_results:
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    if 'consumption_patterns' in energy_results and 'average_consumption' in energy_results['consumption_patterns']:
+                        st.metric("Average Energy Consumption", 
+                                 f"{energy_results['consumption_patterns']['average_consumption']:.2f} kWh")
+                
+                with col2:
+                    if 'power_factor_analysis' in energy_results and 'average_pf' in energy_results['power_factor_analysis']:
+                        st.metric("Average Power Factor", 
+                                 f"{energy_results['power_factor_analysis']['average_pf']:.2f}",
+                                 f"{(energy_results['power_factor_analysis']['average_pf'] - 0.95) * 100:.1f}%" if 'average_pf' in energy_results['power_factor_analysis'] else None)
+                
+                with col3:
+                    if 'energy_intensity' in energy_results and 'average_intensity' in energy_results['energy_intensity']:
+                        st.metric("Energy Intensity", 
+                                 f"{energy_results['energy_intensity']['average_intensity']:.2f} kWh/ton")
+            
+            # Display energy charts
+            st.image(os.path.join(output_dir, "energy_analysis", "hourly_consumption.png"), 
+                    use_column_width=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.image(os.path.join(output_dir, "energy_analysis", "energy_intensity_trend.png"), 
+                        use_column_width=True)
+            with col2:
+                st.image(os.path.join(output_dir, "energy_analysis", "power_factor_trend.png"), 
+                        use_column_width=True)
+        
+        with subtab2:
+            st.subheader("Material Analysis")
+            
+            # Create metrics for key findings
+            if material_results:
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    if 'material_yield' in material_results:
+                        st.metric("Material Yield", 
+                                 f"{material_results['material_yield'] * 100:.1f}%")
+                
+                with col2:
+                    if 'material_loss_percentage' in material_results:
+                        st.metric("Material Loss", 
+                                 f"{material_results['material_loss_percentage']:.1f}%",
+                                 delta=-0.5, delta_color="inverse")
+                
+                with col3:
+                    if 'specific_material_value' in material_results:
+                        st.metric("Specific Material Value", 
+                                 f"${material_results['specific_material_value']:.2f}/ton")
+            
+            # Display material flow diagrams
+            st.image(os.path.join(output_dir, "material_analysis", "material_flow_sankey.png"), 
+                    use_column_width=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.image(os.path.join(output_dir, "material_analysis", "material_yield_pie.png"), 
+                        use_column_width=True)
+            with col2:
+                st.image(os.path.join(output_dir, "material_analysis", "material_input_by_type.png"), 
+                        use_column_width=True)
+        
+        with subtab3:
+            st.subheader("Process Analysis")
+            
+            # Create metrics for key findings
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                energy_intensity = analyses['energy_results'].get('energy_intensity', {}).get('avg_intensity', 0)
-                st.metric("Energy Intensity", f"{energy_intensity:.1f} kWh/ton")
-                
+                if furnace_results and 'temperature_analysis' in furnace_results:
+                    st.metric("Average Temperature", 
+                             f"{furnace_results['temperature_analysis'].get('mean_temperature', 0):.1f}°C")
+            
             with col2:
-                material_yield = analyses['material_results'].get('yield', 0) * 100
-                st.metric("Material Yield", f"{material_yield:.1f}%")
-                
+                if electrode_results and 'paste_consumption' in electrode_results:
+                    st.metric("Electrode Paste Consumption", 
+                             f"{electrode_results['paste_consumption'].get('specific_consumption', 0):.2f} kg/ton")
+            
             with col3:
-                power_factor = analyses['energy_results'].get('power_factor_analysis', {}).get('avg_pf', 0)
-                st.metric("Avg Power Factor", f"{power_factor:.2f}")
+                if process_results and 'equipment_utilization' in process_results:
+                    st.metric("Equipment Utilization", 
+                             f"{process_results['equipment_utilization'].get('overall_utilization', 0) * 100:.1f}%")
             
-            # Summary findings
-            st.subheader("Key Findings")
-            st.markdown("""
-            - **Energy Savings Potential**: 7-15% through power factor correction, load balancing and furnace optimization
-            - **Material Savings Potential**: 3-8% through improved weighing, conveyor efficiency and metal-slag separation
-            - **Overall Cost Reduction**: Significant opportunities identified in electrode paste consumption and process integration
-            """)
-            
-            # Display a key chart
-            st.image(os.path.join(dashboard_path, "energy_efficiency_gauge.png"))
-        
-        with tab2:
-            st.header("Energy Analysis")
-            
+            # Display process optimization charts
             col1, col2 = st.columns(2)
             with col1:
-                st.image(os.path.join(dashboard_path, "hourly_consumption.png"))
-                st.image(os.path.join(dashboard_path, "power_factor_trend.png"))
-            
+                st.image(os.path.join(output_dir, "furnace_optimization", "temperature_stability.png"), 
+                        use_column_width=True)
             with col2:
-                st.image(os.path.join(dashboard_path, "energy_intensity_trend.png"))
-                
-                # Energy savings table
-                st.subheader("Energy Saving Opportunities")
-                energy_opportunities = analyses['what_if_results']['individual_scenarios']
-                energy_data = []
-                
-                for scenario_id, result in energy_opportunities.items():
-                    if 'energy' in scenario_id:
-                        energy_data.append({
-                            'Opportunity': result['name'],
-                            'Annual Savings (kWh)': f"{result['annual_energy_savings']:,.0f}",
-                            'ROI': f"{result['roi_percentage']:.1f}%",
-                            'Payback': f"{result['payback_months']:.1f} months"
-                        })
-                
-                if energy_data:
-                    st.table(pd.DataFrame(energy_data))
+                st.image(os.path.join(output_dir, "process_integration", "process_efficiency.png"), 
+                        use_column_width=True)
         
-        with tab3:
-            st.header("Material Analysis")
+        with subtab4:
+            st.subheader("Summary Dashboard")
             
-            col1, col2 = st.columns(2)
-            with col1:
-                st.image(os.path.join(dashboard_path, "material_flow_sankey.png"))
+            # Load the HTML dashboard
+            dashboard_path = os.path.join(output_dir, "dashboard", "index.html")
+            if os.path.exists(dashboard_path):
+                with open(dashboard_path, "r") as f:
+                    dashboard_html = f.read()
+                st.components.v1.html(dashboard_html, height=800, scrolling=True)
+            else:
+                st.error("Dashboard not found. Please run the analysis first.")
             
-            with col2:
-                st.image(os.path.join(dashboard_path, "material_yield_pie.png"))
-                
-                # Material savings table
-                st.subheader("Material Saving Opportunities")
-                material_opportunities = analyses['what_if_results']['individual_scenarios']
-                material_data = []
-                
-                for scenario_id, result in material_opportunities.items():
-                    if 'material' in scenario_id:
-                        material_data.append({
-                            'Opportunity': result['name'],
-                            'Annual Savings ($)': f"{result['annual_material_savings']:,.0f}",
-                            'ROI': f"{result['roi_percentage']:.1f}%",
-                            'Payback': f"{result['payback_months']:.1f} months"
-                        })
-                
-                if material_data:
-                    st.table(pd.DataFrame(material_data))
-        
-        with tab4:
-            st.header("Optimization Scenarios")
-            
-            st.image(os.path.join(dashboard_path, "optimization_opportunities.png"))
-            st.image(os.path.join(dashboard_path, "roi_comparison.png"))
-            
-            # Combined scenarios
-            st.subheader("Combined Optimization Strategies")
-            if 'combined_scenarios' in analyses['what_if_results']:
-                combined = analyses['what_if_results']['combined_scenarios']
-                combined_data = []
-                
-                for scenario_id, result in combined.items():
-                    combined_data.append({
-                        'Strategy': result['name'],
-                        'Annual Savings': f"${result['total_annual_savings']:,.0f}",
-                        'Investment': f"${result['investment_cost']:,.0f}",
-                        'ROI': f"{result['roi_percentage']:.1f}%",
-                        'Payback': f"{result['payback_months']:.1f} months"
-                    })
-                
-                if combined_data:
-                    st.table(pd.DataFrame(combined_data))
-            
-        # Download section
-        st.markdown("### Download Results")
-        
-        with open(os.path.join(dashboard_path, "index.html"), "r") as f:
-            dashboard_html = f.read()
-        
-        st.download_button(
-            label="Download Full Dashboard (HTML)",
-            data=dashboard_html,
-            file_name="ferro_alloy_dashboard.html",
-            mime="text/html"
-        )
-        
-        # Display the report date and time
-        st.markdown(f"Report generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            
+            # Download button for the dashboard
+            with open(dashboard_path, "rb") as file:
+                st.download_button(
+                    label="Download Dashboard HTML",
+                    data=file,
+                    file_name="ferro_alloy_dashboard.html",
+                    mime="text/html"
+                )
     else:
-        st.error("Please upload all required data files or use sample data")
+        st.info("Please run the analysis from the 'Data Upload' tab first.")
 
-# Display instructions when first loading
-else:
-    st.info("### How to use this tool")
-    st.markdown("""
-    1. Choose whether to use sample data or upload your own files
-    2. If using your own data, upload all required CSV files
-    3. Select configuration option (Default or Custom)
-    4. Click "Run Analysis" to process the data
-    5. View results in the interactive dashboard
-    6. Download the full report for offline viewing
+with tab3:
+    st.header("What-If Scenarios")
     
-    This tool will analyze energy consumption, material flow, and process efficiency to identify optimization opportunities.
-    """)
-    
-    # Display sample of expected data format
-    with st.expander("CSV File Format Examples"):
-        st.markdown("**energy_consumption.csv** example:")
-        st.code("""timestamp,kwh_consumed,process_area,power_factor
-2023-01-01 00:00:00,2450,Furnace,0.91
-2023-01-01 01:00:00,2380,Furnace,0.92""")
+    if "analysis_complete" in st.session_state and st.session_state["analysis_complete"]:
+        # Create filtering options
+        st.subheader("Filter Scenarios")
         
-        st.markdown("**furnace_data.csv** example:")
-        st.code("""timestamp,temperature,power_factor,electrode_current,electrode_paste_consumption_kg,energy_consumed,production_tons
-2023-01-01 00:00:00,1650,0.91,18500,120,2450,5.2
-2023-01-01 01:00:00,1645,0.92,18450,118,2380,5.1""")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            category_filter = st.multiselect(
+                "Category",
+                ["energy", "material", "furnace", "electrode", "process"],
+                default=["energy", "material", "furnace"]
+            )
+        
+        with col2:
+            difficulty_filter = st.multiselect(
+                "Implementation Difficulty",
+                ["low", "medium", "high"],
+                default=["low", "medium"]
+            )
+        
+        # Display filtered scenarios
+        st.subheader("Optimization Opportunities")
+        
+        # Filter scenarios based on selection
+        filtered_scenarios = [s for s in scenarios if 
+                             s.get('category', '') in category_filter and 
+                             s.get('implementation_difficulty', '') in difficulty_filter]
+        
+        if filtered_scenarios:
+            # Sort scenarios by ROI
+            sorted_scenarios = sorted(filtered_scenarios, 
+                                     key=lambda x: x.get('energy_savings_percentage', 0) + x.get('material_savings_percentage', 0),
+                                     reverse=True)
+            
+            for i, scenario in enumerate(sorted_scenarios):
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    st.markdown(f"### {i+1}. {scenario.get('name', 'Unnamed Scenario')}")
+                    st.markdown(f"**{scenario.get('description', '')}**")
+                    
+                    # Display key metrics
+                    metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
+                    with metrics_col1:
+                        st.metric("Energy Savings", f"{scenario.get('energy_savings_percentage', 0):.1f}%")
+                    with metrics_col2:
+                        st.metric("Material Savings", f"{scenario.get('material_savings_percentage', 0):.1f}%")
+                    with metrics_col3:
+                        st.metric("Cost Savings", f"{scenario.get('cost_savings_percentage', 0):.1f}%")
+                    
+                    # Display implementation actions
+                    if 'actions' in scenario:
+                        st.markdown("**Implementation Actions:**")
+                        for action in scenario['actions']:
+                            st.markdown(f"- {action}")
+                
+                with col2:
+                    # Display ROI and difficulty
+                    st.markdown(f"**Category:** {scenario.get('category', '').title()}")
+                    st.markdown(f"**Difficulty:** {scenario.get('implementation_difficulty', '').title()}")
+                    st.markdown(f"**Investment:** {scenario.get('investment_level', '').title()}")
+                    st.markdown(f"**Payback:** {scenario.get('payback_period_months', 0):.1f} months")
+                
+                st.markdown("---")
+        else:
+            st.warning("No scenarios match the selected filters.")
+        
+        # Display ROI comparison chart
+        st.subheader("Return on Investment Comparison")
+        st.image(os.path.join(output_dir, "what_if_analysis", "roi_comparison.png"), 
+                use_column_width=True)
+    else:
+        st.info("Please run the analysis from the 'Data Upload' tab first.")
 
 # Footer
 st.sidebar.markdown("---")
-st.sidebar.markdown(f"© 2025 Carbon Resources Digital Analytics")
-st.sidebar.markdown(f"User: sandy1983jsr")
-st.sidebar.markdown(f"Last updated: 2025-07-22")
+st.sidebar.write(f"Analysis date: {datetime.datetime.now().strftime('%Y-%m-%d')}")
+st.sidebar.write("Created by: sandy1983jsr")
