@@ -14,16 +14,13 @@ COLOR_PALETTE = {
 def plot_energy_area_bar(energy_area):
     if energy_area is None or len(energy_area) == 0:
         return None
-    # Accept both pandas Series and dict
     if isinstance(energy_area, pd.Series):
-        energy_area = energy_area.dropna()
         area_names = list(energy_area.index.astype(str))
         area_vals = list(energy_area.values)
     elif isinstance(energy_area, dict):
         area_names = list(energy_area.keys())
         area_vals = list(energy_area.values())
     else:
-        # Try converting to dict
         try:
             area_names = list(energy_area.keys())
             area_vals = list(energy_area.values())
@@ -48,7 +45,6 @@ def plot_energy_area_bar(energy_area):
 def plot_energy_hourly(hourly):
     if hourly is None or len(hourly) == 0:
         return None
-    # Accept both pandas Series and dict
     if isinstance(hourly, pd.Series):
         hours = list(hourly.index)
         vals = list(hourly.values)
@@ -99,7 +95,6 @@ def plot_energy_trend(daily, anomalies=None):
         markers=True,
     )
     fig.update_traces(line_color=COLOR_PALETTE["orange"])
-    # anomalies
     if anomalies is not None and hasattr(anomalies, "timestamp"):
         fig.add_scatter(
             x=anomalies["timestamp"], y=anomalies["kwh_consumed"],
@@ -168,7 +163,6 @@ def plot_material_yield(yield_val, loss_pct):
     return fig
 
 def plot_sankey():
-    # Example Sankey for consulting demo
     fig = go.Figure(data=[go.Sankey(
         node=dict(
             pad=15, thickness=20, line=dict(color=COLOR_PALETTE["accent"], width=0.5),
@@ -207,5 +201,20 @@ def plot_scenario_roi(scenarios):
         font_color=COLOR_PALETTE["text"],
         title_font_color=COLOR_PALETTE["orange"],
         showlegend=False,
+    )
+    return fig
+
+def plot_savings_over_time(savings_df):
+    if savings_df is None or savings_df.empty:
+        return None
+    fig = px.line(savings_df, x="Date", y="Cumulative Savings",
+                  title="Cumulative Savings Over Time",
+                  markers=True)
+    fig.update_traces(line_color=COLOR_PALETTE["orange"])
+    fig.update_layout(
+        plot_bgcolor=COLOR_PALETTE["background"],
+        paper_bgcolor=COLOR_PALETTE["background"],
+        font_color=COLOR_PALETTE["text"],
+        title_font_color=COLOR_PALETTE["orange"],
     )
     return fig
