@@ -5,6 +5,7 @@ import os
 import tempfile
 import yaml
 
+# --- Import modules ---
 from modules.data_loader import DataLoader
 from modules.baseline_assessment import BaselineAssessment
 from modules.energy_analysis import EnergyAnalysis
@@ -13,17 +14,14 @@ from modules.furnace_optimization import FurnaceOptimization
 from modules.electrode_optimization import ElectrodeOptimization
 from modules.process_integration import ProcessIntegration
 from modules.what_if_engine import WhatIfEngine
-
-# Optional: Visualization, validation, benchmarking, recommendations, etc.
-# import modules.visualization as viz
-# import modules.validation as validation
-# import modules.benchmarking as benchmarking
-# import modules.recommendations as recommendations
-# import modules.action_tracker as action_tracker
-# import modules.savings_tracker as savings_tracker
+from modules.visualization import Visualization
+from modules.recommendations import Recommendations
+from modules.savings_tracker import SavingsTracker
+from modules.validation import Validation
+from modules.benchmarking import Benchmarking
+from modules.action_tracker import ActionTracker
 
 st.set_page_config(page_title="Ferro Alloy Consulting Dashboard", layout="wide")
-
 st.title("Ferro Alloy Consulting Dashboard")
 st.write("Upload operational CSVs or use random demo data to analyze energy, material, and cost opportunities.")
 
@@ -58,7 +56,6 @@ with st.sidebar:
                 st.dataframe(df.head())
                 file.seek(0)  # Reset pointer for actual loading
 
-# --- Data loading logic ---
 if st.button("Run Analysis"):
     if use_random:
         from modules.random_data import generate_random_datasets
@@ -124,11 +121,18 @@ if st.button("Run Analysis"):
     process_results = process.optimize()
     whatif = WhatIfEngine(datasets)
     scenarios = whatif.generate_scenarios()
-    whatif.run_scenarios(scenarios)
+    whatif_results = whatif.run_scenarios(scenarios)
+    visualize = Visualization(datasets)
+    recommendations = Recommendations(datasets).generate()
+    savings_results = SavingsTracker(datasets).calculate()
+    validation_results = Validation(datasets).validate()
+    benchmarking_results = Benchmarking(datasets).compare()
+    actions = ActionTracker().get_actions()
 
-    # --- Simple Dashboard Tabs (minimal, expandable) ---
-    tab1, tab2, tab3 = st.tabs([
-        "Energy Dashboard", "Material Dashboard", "Process & Furnace"
+    # --- Dashboard Tabs ---
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+        "Energy", "Material", "Process & Furnace", "Furnace Optimization", "What-if", 
+        "Recommendations", "Savings", "Validation", "Benchmarking & Actions"
     ])
 
     with tab1:
@@ -136,18 +140,17 @@ if st.button("Run Analysis"):
         st.metric("Total Energy Consumption (kWh)", f"{baseline_results.get('energy_total',0):,.0f}")
         st.metric("Average Power Factor", f"{energy_results.get('avg_pf',0):.2f}")
         st.metric("Energy Intensity (kWh/ton)", f"{baseline_results.get('energy_intensity_kwh_per_ton',0):.2f}")
-
         if "area" in energy_results and energy_results["area"] is not None:
             st.subheader("Energy by Area")
             st.dataframe(energy_results["area"])
-
         if "hourly" in energy_results and energy_results["hourly"] is not None:
             st.subheader("Hourly Energy Consumption (kWh)")
             st.line_chart(energy_results["hourly"])
-
         if "daily" in energy_results and energy_results["daily"] is not None:
             st.subheader("Daily Energy Consumption")
             st.bar_chart(energy_results["daily"])
+        st.subheader("Visualization")
+        visualize.show_energy_charts()
 
     with tab2:
         st.header("🧱 Material Dashboard")
@@ -158,6 +161,8 @@ if st.button("Run Analysis"):
         if "input_by_type" in material_results and material_results["input_by_type"] is not None:
             st.subheader("Material Input Split")
             st.dataframe(pd.DataFrame.from_dict(material_results["input_by_type"], orient="index", columns=["tons"]))
+        st.subheader("Visualization")
+        visualize.show_material_charts()
 
     with tab3:
         st.header("🔥 Process & Furnace Dashboard")
@@ -167,6 +172,53 @@ if st.button("Run Analysis"):
             st.metric("Electrode Paste (kg/ton)", f"{electrode_results['paste_consumption'].get('specific_consumption',0):.2f}")
         if process_results.get("equipment_utilization"):
             st.metric("Equipment Utilization (%)", f"{100*process_results['equipment_utilization'].get('overall_utilization',0):.2f}")
+        st.subheader("Visualization")
+        visualize.show_furnace_charts()
+
+    with tab4:
+        st.header("🔧 Furnace Optimization")
+        if furnace_results.get("recommendations"):
+            for rec in furnace_results["recommendations"]:
+                st.success(rec)
+        else:
+            st.info("No furnace optimization recommendations available.")
+        st.subheader("Visualization")
+        visualize.show_furnace_optimization()
+
+    with tab5:
+        st.header("🔮 What-if Analysis")
+        st.write("Scenarios:")
+        for s in scenarios:
+            st.info(f"Scenario: {s.get('change','')} - Impact: {s.get('impact','')}")
+        st.write("Results:")
+        st.dataframe(pd.DataFrame(whatif_results))
+
+    with tab6:
+        st.header("🧑‍🔬 Recommendations")
+        if recommendations:
+            for rec in recommendations:
+                st.success(rec)
+        else:
+            st.info("No recommendations generated.")
+
+    with tab7:
+        st.header("💲 Estimated Savings")
+        st.metric("Potential Savings (USD)", f"${savings_results.get('estimated_savings_usd', 0):,.2f}")
+
+    with tab8:
+        st.header("✔️ Data Validation")
+        st.write(validation_results)
+
+    with tab9:
+        st.header("📊 Benchmarking")
+        st.write(benchmarking_results)
+        st.header("📝 Action Tracker")
+        st.write(actions)
+        if st.button("Add Action"):
+            action_text = st.text_input("Enter new action:")
+            if action_text:
+                ActionTracker().add_action(action_text)
+                st.success("Action added!")
 
     st.success("Analysis complete! Explore the tabs above for results.")
 
