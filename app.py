@@ -14,12 +14,12 @@ from modules.furnace_optimization import FurnaceOptimization
 from modules.electrode_optimization import ElectrodeOptimization
 from modules.process_integration import ProcessIntegration
 from modules.what_if_engine import WhatIfEngine
-import modules.visualization as visualization  # <-- Correct import
-from modules.recommendations import Recommendations
-from modules.savings_tracker import SavingsTracker
-from modules.validation import Validation
-from modules.benchmarking import Benchmarking
-from modules.action_tracker import ActionTracker
+import modules.visualization as visualization
+import modules.recommendations as recommendations
+import modules.savings_tracker as savings_tracker
+import modules.validation as validation
+import modules.benchmarking as benchmarking
+import modules.action_tracker as action_tracker
 
 st.set_page_config(page_title="Ferro Alloy Consulting Dashboard", layout="wide")
 st.title("Ferro Alloy Consulting Dashboard")
@@ -122,11 +122,11 @@ if st.button("Run Analysis"):
     whatif = WhatIfEngine(datasets)
     scenarios = whatif.generate_scenarios()
     whatif_results = whatif.run_scenarios(scenarios)
-    recommendations = Recommendations(datasets).generate()
-    savings_results = SavingsTracker(datasets).calculate()
-    validation_results = Validation(datasets).validate()
-    benchmarking_results = Benchmarking(datasets).compare()
-    actions = ActionTracker().get_actions()
+    recs = recommendations.Recommendations(datasets).generate()
+    savings_results = savings_tracker.SavingsTracker(datasets).calculate()
+    validation_results = validation.Validation(datasets).validate()
+    benchmarking_results = benchmarking.Benchmarking(datasets).compare()
+    actions = action_tracker.ActionTracker().get_actions()
 
     # --- Dashboard Tabs ---
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
@@ -185,7 +185,7 @@ if st.button("Run Analysis"):
         if process_results.get("equipment_utilization"):
             st.metric("Equipment Utilization (%)", f"{100*process_results['equipment_utilization'].get('overall_utilization',0):.2f}")
         st.subheader("Visualization")
-        # You may have a custom function for this, otherwise include relevant plots
+        # Add furnace/process plots as needed
 
     with tab4:
         st.header("🔧 Furnace Optimization")
@@ -195,7 +195,7 @@ if st.button("Run Analysis"):
         else:
             st.info("No furnace optimization recommendations available.")
         st.subheader("Visualization")
-        # Add relevant furnace optimization visualizations here
+        # Add furnace optimization visualizations as needed
 
     with tab5:
         st.header("🔮 What-if Analysis")
@@ -204,15 +204,12 @@ if st.button("Run Analysis"):
             st.info(f"Scenario: {s.get('change','')} - Impact: {s.get('impact','')}")
         st.write("Results:")
         st.dataframe(pd.DataFrame(whatif_results))
-        # Example: scenario ROI bar
-        # fig = visualization.plot_scenario_roi(scenarios)
-        # if fig:
-        #     st.plotly_chart(fig, use_container_width=True)
+        # Add what-if scenario visualizations as needed
 
     with tab6:
         st.header("🧑‍🔬 Recommendations")
-        if recommendations:
-            for rec in recommendations:
+        if recs:
+            for rec in recs:
                 st.success(rec)
         else:
             st.info("No recommendations generated.")
@@ -220,10 +217,7 @@ if st.button("Run Analysis"):
     with tab7:
         st.header("💲 Estimated Savings")
         st.metric("Potential Savings (USD)", f"${savings_results.get('estimated_savings_usd', 0):,.2f}")
-        # Example: cumulative savings chart
-        # fig = visualization.plot_savings_over_time(savings_df)
-        # if fig:
-        #     st.plotly_chart(fig, use_container_width=True)
+        # Add cumulative savings chart, if desired
 
     with tab8:
         st.header("✔️ Data Validation")
@@ -237,7 +231,7 @@ if st.button("Run Analysis"):
         if st.button("Add Action"):
             action_text = st.text_input("Enter new action:")
             if action_text:
-                ActionTracker().add_action(action_text)
+                action_tracker.ActionTracker().add_action(action_text)
                 st.success("Action added!")
 
     st.success("Analysis complete! Explore the tabs above for results.")
