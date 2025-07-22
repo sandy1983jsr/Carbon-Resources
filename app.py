@@ -103,19 +103,35 @@ if st.button("Run Analysis"):
         st.metric("Total Energy Consumption (kWh)", f"{baseline_results.get('energy_total',0):,.0f}")
         st.metric("Average Power Factor", f"{energy_results.get('avg_pf',0):.2f}")
         st.metric("Average Energy Intensity (kWh)", f"{energy_results.get('avg_intensity',0):.2f}")
-        if energy_results.get("area") is not None:
-            st.plotly_chart(viz.plot_energy_area_bar(energy_results["area"]))
-        st.plotly_chart(viz.plot_energy_hourly(energy_results["hourly"]))
-        st.plotly_chart(viz.plot_energy_trend(energy_results["daily"], anomalies=energy_results["anomaly_vals"]))
+        area_data = energy_results.get("area")
+        if area_data is not None:
+            fig = viz.plot_energy_area_bar(area_data)
+            if fig is not None:
+                st.plotly_chart(fig)
+        hourly = energy_results.get("hourly")
+        if hourly is not None:
+            fig = viz.plot_energy_hourly(hourly)
+            if fig is not None:
+                st.plotly_chart(fig)
+        daily = energy_results.get("daily")
+        if daily is not None:
+            fig = viz.plot_energy_trend(daily, anomalies=energy_results.get("anomaly_vals"))
+            if fig is not None:
+                st.plotly_chart(fig)
 
     with tab2:
         st.header("🧱 Material Dashboard")
         st.metric("Material Yield (%)", f"{100*(material_results.get('material_yield',0)):.2f}")
         st.metric("Material Loss (%)", f"{material_results.get('material_loss_percentage',0):.2f}")
-        if material_results.get("input_by_type"):
-            st.plotly_chart(viz.plot_material_pie(material_results["input_by_type"]))
-        if material_results.get("material_yield") is not None:
-            st.plotly_chart(viz.plot_material_yield(material_results["material_yield"], material_results["material_loss_percentage"]))
+        input_by_type = material_results.get("input_by_type")
+        if input_by_type:
+            fig = viz.plot_material_pie(input_by_type)
+            if fig is not None:
+                st.plotly_chart(fig)
+        if material_results.get("material_yield") is not None and material_results.get("material_loss_percentage") is not None:
+            fig = viz.plot_material_yield(material_results["material_yield"], material_results["material_loss_percentage"])
+            if fig is not None:
+                st.plotly_chart(fig)
         st.plotly_chart(viz.plot_sankey())
 
     with tab3:
@@ -129,7 +145,9 @@ if st.button("Run Analysis"):
 
     with tab4:
         st.header("🧮 Scenario & ROI Dashboard")
-        st.plotly_chart(viz.plot_scenario_roi(scenarios))
+        fig = viz.plot_scenario_roi(scenarios)
+        if fig is not None:
+            st.plotly_chart(fig)
         for s in scenarios:
             st.subheader(f"Scenario: {s['name']}")
             st.write(s["description"])
