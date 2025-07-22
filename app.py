@@ -1,140 +1,233 @@
+import streamlit as st
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+import os
+import tempfile
+import yaml
 
-def generate_random_datasets(n_hours=24*7, freq='H'):
-    """
-    Generate realistic random datasets for 7 days (default) with hourly resolution.
-    Returns a dict of DataFrames for the main data files expected by the app.
-    """
-    np.random.seed(42)
-    base_time = datetime.now() - timedelta(hours=n_hours)
-    timestamps = pd.date_range(base_time, periods=n_hours, freq=freq)
-    
-    # Simulate 3 areas/processes for energy and furnaces
-    areas = ['Furnace1', 'Furnace2', 'Furnace3']
-    material_types = ['Ore', 'Coke', 'Quartzite', 'Other']
-    output_types = ['FeSi', 'Slag', 'Dust']
+# --- Import modules ---
+from modules.data_loader import DataLoader
+from modules.baseline_assessment import BaselineAssessment
+from modules.energy_analysis import EnergyAnalysis
+from modules.material_analysis import MaterialAnalysis
+from modules.furnace_optimization import FurnaceOptimization
+from modules.electrode_optimization import ElectrodeOptimization
+from modules.process_integration import ProcessIntegration
+from modules.what_if_engine import WhatIfEngine
+import modules.visualization as visualization
+import modules.recommendations as recommendations  # Import as module (function-based, not class-based)
 
-    # Energy Consumption: each area has a distinct pattern
-    energy_consumption = []
-    for area in areas:
-        # Simulate base consumption plus daily and random fluctuations
-        base = np.random.uniform(900, 1100)
-        daily_cycle = 100 * np.sin(np.linspace(0, 6*np.pi, n_hours))  # 3 days cycle
-        random = np.random.normal(0, 60, n_hours)
-        pf = np.clip(np.random.normal(0.90, 0.03, n_hours), 0.85, 1.0)
-        for i, t in enumerate(timestamps):
-            energy_consumption.append({
-                'timestamp': t,
-                'area': area,
-                'kWh': max(0, base + daily_cycle[i] + random[i]),
-                'power_factor': pf[i],
-            })
-    df_energy = pd.DataFrame(energy_consumption)
+st.set_page_config(page_title="Ferro Alloy Consulting Dashboard", layout="wide")
+st.title("Ferro Alloy Consulting Dashboard")
+st.write("Upload operational CSVs or use random demo data to analyze energy, material, and cost opportunities.")
 
-    # Production: simulate 2 shifts per day, some downtime
-    prod = []
-    for t in timestamps:
-        shift = 1 if (t.hour >= 6 and t.hour < 18) else 2
-        # Simulate downtime every 30th hour
-        is_running = (t.hour % 30 != 0)
-        amount = np.random.uniform(15, 25) if is_running else 0
-        prod.append({
-            'timestamp': t,
-            'shift': shift,
-            'tons_produced': amount,
-            'downtime': 0 if is_running else np.random.uniform(0.5, 3.0)
-        })
-    df_prod = pd.DataFrame(prod)
+# --- Sidebar: Data source selection ---
+with st.sidebar:
+    st.header("Data Source")
+    use_random = st.checkbox("Use random demo data (no file upload)", value=False)
+    st.markdown("---")
 
-    # Material Input: simulate batch feeding, randomize input types
-    mat_in = []
-    for t in timestamps:
-        for mt in material_types:
-            base = {'Ore': 12, 'Coke': 7, 'Quartzite': 3, 'Other': 1}[mt]
-            fluct = np.random.uniform(-2.0, 2.0)
-            mat_in.append({
-                'timestamp': t,
-                'material_type': mt,
-                'tons': max(0, base + fluct + np.random.normal(0, 0.6))
-            })
-    df_matin = pd.DataFrame(mat_in)
+    uploaded_files = {}
+    if not use_random:
+        st.header("Upload Data Files")
+        required_files = [
+            ("energy_consumption.csv", "Energy Consumption"),
+            ("production.csv", "Production"),
+            ("material_input.csv", "Material Input"),
+            ("material_output.csv", "Material Output"),
+            ("furnace_data.csv", "Furnace Data"),
+            ("process_data.csv", "Process Data"),
+        ]
+        for fname, label in required_files:
+            uploaded_files[fname] = st.file_uploader(f"{label} ({fname})", type="csv")
+        config_file = st.file_uploader("Config file (optional)", type="yaml")
+        st.markdown("---")
+        st.info("Tip: For best results, upload all six files.")
 
-    # Material Output: simulate main product and byproducts
-    mat_out = []
-    for t in timestamps:
-        for ot in output_types:
-            if ot == 'FeSi':
-                tons = np.random.uniform(18, 22)
-            elif ot == 'Slag':
-                tons = np.random.uniform(4, 7)
+        # Show preview of each CSV after upload
+        for fname, file in uploaded_files.items():
+            if file:
+                st.markdown(f"**Preview: {fname}**")
+                df = pd.read_csv(file)
+                st.dataframe(df.head())
+                file.seek(0)  # Reset pointer for actual loading
+
+if st.button("Run Analysis"):
+    if use_random:
+        from modules.random_data import generate_random_datasets
+        datasets = generate_random_datasets(n_hours=24)
+        st.success("Random demo data generated!")
+        for k, df in datasets.items():
+            st.write(f"**{k}** sample data:")
+            st.dataframe(df.head())
+    else:
+        # Save uploaded files to temp directory
+        temp_dir = tempfile.mkdtemp()
+        data_dir = os.path.join(temp_dir, "data")
+        os.makedirs(data_dir, exist_ok=True)
+        for fname, file in uploaded_files.items():
+            if file:
+                with open(os.path.join(data_dir, fname), "wb") as out:
+                    out.write(file.getbuffer())
+        config_path = os.path.join(temp_dir, "config.yaml")
+        if 'config_file' in locals() and config_file:
+            with open(config_path, "wb") as out:
+                out.write(config_file.getbuffer())
+        else:
+            auto_config = {
+                "data_files": {
+                    "energy_consumption": {"filename": "energy_consumption.csv", "date_columns": ["timestamp"]},
+                    "production": {"filename": "production.csv", "date_columns": ["timestamp"]},
+                    "material_input": {"filename": "material_input.csv", "date_columns": ["timestamp"]},
+                    "material_output": {"filename": "material_output.csv", "date_columns": ["timestamp"]},
+                    "furnace_data": {"filename": "furnace_data.csv", "date_columns": ["timestamp"]},
+                    "process_data": {"filename": "process_data.csv", "date_columns": ["timestamp"]},
+                }
+            }
+            with open(config_path, "w") as out:
+                yaml.dump(auto_config, out)
+        data_loader = DataLoader(data_dir=data_dir, config_path=config_path)
+        datasets = data_loader.load_all_datasets()
+        st.success("Data loaded!")
+        st.write("Loaded datasets:", list(datasets.keys()))
+        for k, df in datasets.items():
+            if df is not None:
+                st.write(f"{k}: Shape {df.shape}")
+                st.dataframe(df.head())
             else:
-                tons = np.random.uniform(0.2, 0.6)
-            mat_out.append({
-                'timestamp': t,
-                'output_type': ot,
-                'tons': tons
-            })
-    df_matout = pd.DataFrame(mat_out)
+                st.warning(f"{k}: Not loaded")
 
-    # Furnace Data: simulate T, V, I, PF for each furnace
-    furnace_data = []
-    for area in areas:
-        for i, t in enumerate(timestamps):
-            temp = np.random.normal(1500, 50)
-            voltage = np.random.normal(100, 10)
-            current = np.random.normal(38, 4)
-            pf = np.clip(np.random.normal(0.88, 0.04), 0.82, 0.98)
-            furnace_data.append({
-                'timestamp': t,
-                'furnace': area,
-                'temperature_C': temp + 20 * np.sin(2 * np.pi * (i % 24) / 24),
-                'voltage': voltage,
-                'current': current,
-                'power_factor': pf,
-            })
-    df_furnace = pd.DataFrame(furnace_data)
+    # If no data, stop
+    if not datasets or all(df is None or df.empty for df in datasets.values()):
+        st.error("No data loaded. Please upload all required CSV files or use random demo data.")
+        st.stop()
 
-    # Process Data: simulate equipment utilization, paste addition, etc.
-    process_data = []
-    for t in timestamps:
-        equip_util = np.clip(np.random.normal(0.93, 0.02), 0.85, 1.0)
-        paste_kg = np.random.uniform(9, 12)
-        process_data.append({
-            'timestamp': t,
-            'equipment_utilization': equip_util,
-            'paste_added_kg': paste_kg,
-            'remarks': np.random.choice(['', '', '', '', 'Scheduled Maint.', 'Short Break', 'Power Dip'])
-        })
-    df_process = pd.DataFrame(process_data)
+    # --- Analyses ---
+    baseline = BaselineAssessment(datasets)
+    baseline_results = baseline.run_assessment()
+    energy = EnergyAnalysis(datasets)
+    energy_results = energy.analyze()
+    material = MaterialAnalysis(datasets)
+    material_results = material.analyze()
+    furnace = FurnaceOptimization(datasets)
+    furnace_results = furnace.optimize()
+    electrode = ElectrodeOptimization(datasets)
+    electrode_results = electrode.optimize()
+    process = ProcessIntegration(datasets)
+    process_results = process.optimize()
+    whatif = WhatIfEngine(datasets)
+    scenarios = whatif.generate_scenarios()
+    whatif_results = whatif.run_scenarios(scenarios)
 
-    # Add some event logs for action tracker (if used)
-    action_events = []
-    for i in range(15):
-        t = timestamps[np.random.randint(0, len(timestamps))]
-        action_events.append({
-            'timestamp': t,
-            'action': np.random.choice(['Routine Check', 'Electrode Change', 'Slag Tap', 'Temp Adjustment', 'Parameter Review']),
-            'status': np.random.choice(['Completed', 'Pending', 'In Progress']),
-            'notes': np.random.choice(['', 'All OK', 'Follow-up needed', 'Delayed due to supply'])
-        })
-    df_actions = pd.DataFrame(action_events)
+    # --- Recommendations (function-based) ---
+    # Instead of: recs = recommendations.Recommendations(datasets).generate()
+    # Use:
+    if hasattr(recommendations, "generate"):
+        recs = recommendations.generate(datasets)
+    else:
+        recs = []
 
-    # Optionally, generate some benchmarking reference data (e.g. last year's stats)
-    df_benchmark = pd.DataFrame({
-        'metric': ['energy_intensity', 'material_yield', 'equip_util', 'paste_consumption'],
-        'benchmark_value': [12000, 0.87, 0.95, 10.5],
-        'unit': ['kWh/ton', '', '', 'kg/ton']
-    })
+    # --- Dashboard Tabs ---
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+        "Energy", "Material", "Process & Furnace", "Furnace Optimization", "What-if", 
+        "Recommendations", "Savings", "Validation", "Benchmarking & Actions"
+    ])
 
-    return {
-        'energy_consumption': df_energy,
-        'production': df_prod,
-        'material_input': df_matin,
-        'material_output': df_matout,
-        'furnace_data': df_furnace,
-        'process_data': df_process,
-        'action_events': df_actions,
-        'benchmark_data': df_benchmark
-    }
+    with tab1:
+        st.header("⚡ Energy Dashboard")
+        st.metric("Total Energy Consumption (kWh)", f"{baseline_results.get('energy_total',0):,.0f}")
+        st.metric("Average Power Factor", f"{energy_results.get('avg_pf',0):.2f}")
+        st.metric("Energy Intensity (kWh/ton)", f"{baseline_results.get('energy_intensity_kwh_per_ton',0):.2f}")
+
+        if "area" in energy_results and energy_results["area"] is not None:
+            st.subheader("Energy by Area")
+            st.dataframe(energy_results["area"])
+            fig = visualization.plot_energy_area_bar(energy_results["area"])
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+        if "hourly" in energy_results and energy_results["hourly"] is not None:
+            st.subheader("Hourly Energy Consumption (kWh)")
+            fig = visualization.plot_energy_hourly(energy_results["hourly"])
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+        if "daily" in energy_results and energy_results["daily"] is not None:
+            st.subheader("Daily Energy Consumption")
+            fig = visualization.plot_energy_trend(energy_results["daily"])
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+
+    with tab2:
+        st.header("🧱 Material Dashboard")
+        st.metric("Material Input (tons)", f"{baseline_results.get('material_input_total',0):.2f}")
+        st.metric("Material Output (tons)", f"{baseline_results.get('material_output_total',0):.2f}")
+        st.metric("Material Yield (%)", f"{100*(baseline_results.get('material_yield',0)):.2f}")
+        st.metric("Material Loss (%)", f"{baseline_results.get('material_loss_pct',0):.2f}")
+        if "input_by_type" in material_results and material_results["input_by_type"] is not None:
+            st.subheader("Material Input Split")
+            st.dataframe(pd.DataFrame.from_dict(material_results["input_by_type"], orient="index", columns=["tons"]))
+            fig = visualization.plot_material_pie(material_results["input_by_type"])
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+        fig = visualization.plot_material_yield(
+            baseline_results.get('material_yield', None),
+            baseline_results.get('material_loss_pct', None)
+        )
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+
+    with tab3:
+        st.header("🔥 Process & Furnace Dashboard")
+        st.metric("Furnace Mean Temp (°C)", f"{furnace_results.get('mean_temp',0):.0f}")
+        st.metric("Furnace PF", f"{furnace_results.get('mean_pf',0):.2f}")
+        if electrode_results.get("paste_consumption"):
+            st.metric("Electrode Paste (kg/ton)", f"{electrode_results['paste_consumption'].get('specific_consumption',0):.2f}")
+        if process_results.get("equipment_utilization"):
+            st.metric("Equipment Utilization (%)", f"{100*process_results['equipment_utilization'].get('overall_utilization',0):.2f}")
+        st.subheader("Visualization")
+        # Add furnace/process plots as needed
+
+    with tab4:
+        st.header("🔧 Furnace Optimization")
+        if furnace_results.get("recommendations"):
+            for rec in furnace_results["recommendations"]:
+                st.success(rec)
+        else:
+            st.info("No furnace optimization recommendations available.")
+        st.subheader("Visualization")
+        # Add furnace optimization visualizations as needed
+
+    with tab5:
+        st.header("🔮 What-if Analysis")
+        st.write("Scenarios:")
+        for s in scenarios:
+            st.info(f"Scenario: {s.get('change','')} - Impact: {s.get('impact','')}")
+        st.write("Results:")
+        st.dataframe(pd.DataFrame(whatif_results))
+        # Add what-if scenario visualizations as needed
+
+    with tab6:
+        st.header("🧑‍🔬 Recommendations")
+        if recs:
+            for rec in recs:
+                st.success(rec)
+        else:
+            st.info("No recommendations generated.")
+
+    with tab7:
+        st.header("💲 Estimated Savings")
+        st.info("Savings analysis module is currently unavailable.")
+
+    with tab8:
+        st.header("✔️ Data Validation")
+        st.info("Validation module is currently unavailable.")
+
+    with tab9:
+        st.header("📊 Benchmarking")
+        st.info("Benchmarking module is currently unavailable.")
+        st.header("📝 Action Tracker")
+        st.info("Action Tracker module is currently unavailable.")
+
+    st.success("Analysis complete! Explore the tabs above for results.")
+
+else:
+    st.info("Upload all required CSVs or select random demo data, then click **Run Analysis**.")
