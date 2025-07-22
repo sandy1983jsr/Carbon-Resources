@@ -14,6 +14,9 @@ class DataLoader:
         for dset, meta in self.expected_files.items():
             file_path = os.path.join(self.data_dir, meta['filename'])
             if os.path.exists(file_path):
-                df = pd.read_csv(file_path, parse_dates=meta.get('date_columns', []))
-                datasets[dset] = df
+                try:
+                    df = pd.read_csv(file_path, parse_dates=meta.get('date_columns', []))
+                    datasets[dset] = df
+                except Exception as e:
+                    pass
         return datasets
