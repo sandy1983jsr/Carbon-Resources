@@ -14,11 +14,11 @@ from modules.furnace_optimization import FurnaceOptimization
 from modules.electrode_optimization import ElectrodeOptimization
 from modules.process_integration import ProcessIntegration
 from modules.what_if_engine import WhatIfEngine
-from modules.validation import Validation
 from modules.benchmarking import Benchmarking
 from modules.action_tracker import ActionTracker
 import modules.visualization as visualization
 import modules.recommendations as recommendations
+# Validation removed
 
 st.set_page_config(page_title="Ferro Alloy Consulting Dashboard", layout="wide")
 st.title("Ferro Alloy Consulting Dashboard")
@@ -122,8 +122,6 @@ if st.button("Run Analysis"):
     scenarios = whatif.generate_scenarios()
     whatif_results = whatif.run_scenarios(scenarios)
     recs = recommendations.Recommendations(datasets).generate()
-    # No SavingsTracker import/use
-    validation_results = Validation(datasets).validate()
     benchmarking_results = Benchmarking(datasets).compare()
     actions = ActionTracker().get_actions()
 
@@ -219,7 +217,7 @@ if st.button("Run Analysis"):
 
     with tab8:
         st.header("✔️ Data Validation")
-        st.write(validation_results)
+        st.info("Validation module is currently unavailable.")
 
     with tab9:
         st.header("📊 Benchmarking")
