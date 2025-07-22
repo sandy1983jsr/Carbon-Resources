@@ -15,7 +15,7 @@ from modules.electrode_optimization import ElectrodeOptimization
 from modules.process_integration import ProcessIntegration
 from modules.what_if_engine import WhatIfEngine
 import modules.visualization as visualization
-import modules.recommendations as recommendations  # Import as module (function-based, not class-based)
+import modules.recommendations as recommendations  # Function-based, not class-based
 
 st.set_page_config(page_title="Ferro Alloy Consulting Dashboard", layout="wide")
 st.title("Ferro Alloy Consulting Dashboard")
@@ -55,7 +55,7 @@ with st.sidebar:
 if st.button("Run Analysis"):
     if use_random:
         from modules.random_data import generate_random_datasets
-        datasets = generate_random_datasets(n_hours=24)
+        datasets = generate_random_datasets(n_hours=24*7)  # 7 days of hourly data
         st.success("Random demo data generated!")
         for k, df in datasets.items():
             st.write(f"**{k}** sample data:")
@@ -120,8 +120,6 @@ if st.button("Run Analysis"):
     whatif_results = whatif.run_scenarios(scenarios)
 
     # --- Recommendations (function-based) ---
-    # Instead of: recs = recommendations.Recommendations(datasets).generate()
-    # Use:
     if hasattr(recommendations, "generate"):
         recs = recommendations.generate(datasets)
     else:
@@ -135,22 +133,34 @@ if st.button("Run Analysis"):
 
     with tab1:
         st.header("⚡ Energy Dashboard")
-        st.metric("Total Energy Consumption (kWh)", f"{baseline_results.get('energy_total',0):,.0f}")
-        st.metric("Average Power Factor", f"{energy_results.get('avg_pf',0):.2f}")
-        st.metric("Energy Intensity (kWh/ton)", f"{baseline_results.get('energy_intensity_kwh_per_ton',0):.2f}")
+        # Defensive checks for baseline_results and energy_results
+        if isinstance(baseline_results, dict):
+            total_energy = baseline_results.get('energy_total', 0)
+            energy_intensity = baseline_results.get('energy_intensity_kwh_per_ton', 0)
+        else:
+            total_energy = 0
+            energy_intensity = 0
+        if isinstance(energy_results, dict):
+            avg_pf = energy_results.get('avg_pf', 0)
+        else:
+            avg_pf = 0
 
-        if "area" in energy_results and energy_results["area"] is not None:
+        st.metric("Total Energy Consumption (kWh)", f"{total_energy:,.0f}")
+        st.metric("Average Power Factor", f"{avg_pf:.2f}")
+        st.metric("Energy Intensity (kWh/ton)", f"{energy_intensity:,.2f}")
+
+        if isinstance(energy_results, dict) and "area" in energy_results and energy_results["area"] is not None:
             st.subheader("Energy by Area")
             st.dataframe(energy_results["area"])
             fig = visualization.plot_energy_area_bar(energy_results["area"])
             if fig:
                 st.plotly_chart(fig, use_container_width=True)
-        if "hourly" in energy_results and energy_results["hourly"] is not None:
+        if isinstance(energy_results, dict) and "hourly" in energy_results and energy_results["hourly"] is not None:
             st.subheader("Hourly Energy Consumption (kWh)")
             fig = visualization.plot_energy_hourly(energy_results["hourly"])
             if fig:
                 st.plotly_chart(fig, use_container_width=True)
-        if "daily" in energy_results and energy_results["daily"] is not None:
+        if isinstance(energy_results, dict) and "daily" in energy_results and energy_results["daily"] is not None:
             st.subheader("Daily Energy Consumption")
             fig = visualization.plot_energy_trend(energy_results["daily"])
             if fig:
@@ -158,38 +168,56 @@ if st.button("Run Analysis"):
 
     with tab2:
         st.header("🧱 Material Dashboard")
-        st.metric("Material Input (tons)", f"{baseline_results.get('material_input_total',0):.2f}")
-        st.metric("Material Output (tons)", f"{baseline_results.get('material_output_total',0):.2f}")
-        st.metric("Material Yield (%)", f"{100*(baseline_results.get('material_yield',0)):.2f}")
-        st.metric("Material Loss (%)", f"{baseline_results.get('material_loss_pct',0):.2f}")
-        if "input_by_type" in material_results and material_results["input_by_type"] is not None:
+        if isinstance(baseline_results, dict):
+            material_input_total = baseline_results.get('material_input_total', 0)
+            material_output_total = baseline_results.get('material_output_total', 0)
+            material_yield = baseline_results.get('material_yield', 0)
+            material_loss_pct = baseline_results.get('material_loss_pct', 0)
+        else:
+            material_input_total = 0
+            material_output_total = 0
+            material_yield = 0
+            material_loss_pct = 0
+        st.metric("Material Input (tons)", f"{material_input_total:.2f}")
+        st.metric("Material Output (tons)", f"{material_output_total:.2f}")
+        st.metric("Material Yield (%)", f"{100*(material_yield):.2f}")
+        st.metric("Material Loss (%)", f"{material_loss_pct:.2f}")
+        if isinstance(material_results, dict) and "input_by_type" in material_results and material_results["input_by_type"] is not None:
             st.subheader("Material Input Split")
             st.dataframe(pd.DataFrame.from_dict(material_results["input_by_type"], orient="index", columns=["tons"]))
             fig = visualization.plot_material_pie(material_results["input_by_type"])
             if fig:
                 st.plotly_chart(fig, use_container_width=True)
         fig = visualization.plot_material_yield(
-            baseline_results.get('material_yield', None),
-            baseline_results.get('material_loss_pct', None)
+            material_yield,
+            material_loss_pct
         )
         if fig:
             st.plotly_chart(fig, use_container_width=True)
 
     with tab3:
         st.header("🔥 Process & Furnace Dashboard")
-        st.metric("Furnace Mean Temp (°C)", f"{furnace_results.get('mean_temp',0):.0f}")
-        st.metric("Furnace PF", f"{furnace_results.get('mean_pf',0):.2f}")
-        if electrode_results.get("paste_consumption"):
+        if isinstance(furnace_results, dict):
+            mean_temp = furnace_results.get('mean_temp', 0)
+            mean_pf = furnace_results.get('mean_pf', 0)
+            recommendations_list = furnace_results.get("recommendations", [])
+        else:
+            mean_temp = 0
+            mean_pf = 0
+            recommendations_list = []
+        st.metric("Furnace Mean Temp (°C)", f"{mean_temp:.0f}")
+        st.metric("Furnace PF", f"{mean_pf:.2f}")
+        if isinstance(electrode_results, dict) and electrode_results.get("paste_consumption"):
             st.metric("Electrode Paste (kg/ton)", f"{electrode_results['paste_consumption'].get('specific_consumption',0):.2f}")
-        if process_results.get("equipment_utilization"):
+        if isinstance(process_results, dict) and process_results.get("equipment_utilization"):
             st.metric("Equipment Utilization (%)", f"{100*process_results['equipment_utilization'].get('overall_utilization',0):.2f}")
         st.subheader("Visualization")
         # Add furnace/process plots as needed
 
     with tab4:
         st.header("🔧 Furnace Optimization")
-        if furnace_results.get("recommendations"):
-            for rec in furnace_results["recommendations"]:
+        if isinstance(furnace_results, dict) and recommendations_list:
+            for rec in recommendations_list:
                 st.success(rec)
         else:
             st.info("No furnace optimization recommendations available.")
@@ -199,10 +227,14 @@ if st.button("Run Analysis"):
     with tab5:
         st.header("🔮 What-if Analysis")
         st.write("Scenarios:")
-        for s in scenarios:
-            st.info(f"Scenario: {s.get('change','')} - Impact: {s.get('impact','')}")
-        st.write("Results:")
-        st.dataframe(pd.DataFrame(whatif_results))
+        if isinstance(scenarios, list):
+            for s in scenarios:
+                st.info(f"Scenario: {s.get('change','')} - Impact: {s.get('impact','')}")
+        if isinstance(whatif_results, list) and len(whatif_results) > 0:
+            st.write("Results:")
+            st.dataframe(pd.DataFrame(whatif_results))
+        else:
+            st.info("No what-if analysis results available.")
         # Add what-if scenario visualizations as needed
 
     with tab6:
