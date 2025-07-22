@@ -83,7 +83,7 @@ def generate_random_datasets(n_hours=24):
     }).sort_values("timestamp").reset_index(drop=True)
 
     # What-if Analysis Data
-    what_if_analysis = [
+    what_if_analysis = pd.DataFrame([
         {
             "scenario": "Reduce Furnace Setpoint by 20°C",
             "expected_energy_savings_%": 3.8,
@@ -96,7 +96,7 @@ def generate_random_datasets(n_hours=24):
             "expected_cost_savings_%": 1.0,
             "impact": "More production per shift, minor maintenance risk"
         }
-    ]
+    ])
 
     # Recommendations Data
     recommendations = [
