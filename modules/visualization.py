@@ -12,7 +12,24 @@ COLOR_PALETTE = {
 }
 
 def plot_energy_area_bar(energy_area):
-    df = pd.DataFrame({"area": list(energy_area.keys()), "energy": list(energy_area.values())})
+    if energy_area is None or len(energy_area) == 0:
+        return None
+    # Accept both pandas Series and dict
+    if isinstance(energy_area, pd.Series):
+        energy_area = energy_area.dropna()
+        area_names = list(energy_area.index.astype(str))
+        area_vals = list(energy_area.values)
+    elif isinstance(energy_area, dict):
+        area_names = list(energy_area.keys())
+        area_vals = list(energy_area.values())
+    else:
+        # Try converting to dict
+        try:
+            area_names = list(energy_area.keys())
+            area_vals = list(energy_area.values())
+        except Exception:
+            return None
+    df = pd.DataFrame({"area": area_names, "energy": area_vals})
     fig = px.bar(
         df, x="area", y="energy",
         color="area",
@@ -29,7 +46,22 @@ def plot_energy_area_bar(energy_area):
     return fig
 
 def plot_energy_hourly(hourly):
-    df = pd.DataFrame({"hour": hourly.index, "energy": hourly.values})
+    if hourly is None or len(hourly) == 0:
+        return None
+    # Accept both pandas Series and dict
+    if isinstance(hourly, pd.Series):
+        hours = list(hourly.index)
+        vals = list(hourly.values)
+    elif isinstance(hourly, dict):
+        hours = list(hourly.keys())
+        vals = list(hourly.values())
+    else:
+        try:
+            hours = list(hourly.keys())
+            vals = list(hourly.values())
+        except Exception:
+            return None
+    df = pd.DataFrame({"hour": hours, "energy": vals})
     fig = px.line(
         df, x="hour", y="energy",
         line_shape="spline",
@@ -46,7 +78,21 @@ def plot_energy_hourly(hourly):
     return fig
 
 def plot_energy_trend(daily, anomalies=None):
-    df = pd.DataFrame({"date": daily.index, "energy": daily.values})
+    if daily is None or len(daily) == 0:
+        return None
+    if isinstance(daily, pd.Series):
+        dates = list(daily.index)
+        vals = list(daily.values)
+    elif isinstance(daily, dict):
+        dates = list(daily.keys())
+        vals = list(daily.values())
+    else:
+        try:
+            dates = list(daily.index)
+            vals = list(daily.values)
+        except Exception:
+            return None
+    df = pd.DataFrame({"date": dates, "energy": vals})
     fig = px.line(
         df, x="date", y="energy",
         title="Daily Energy Consumption Trend",
@@ -54,7 +100,7 @@ def plot_energy_trend(daily, anomalies=None):
     )
     fig.update_traces(line_color=COLOR_PALETTE["orange"])
     # anomalies
-    if anomalies is not None and len(anomalies) > 0:
+    if anomalies is not None and hasattr(anomalies, "timestamp"):
         fig.add_scatter(
             x=anomalies["timestamp"], y=anomalies["kwh_consumed"],
             mode="markers", marker=dict(color=COLOR_PALETTE["grey"], size=10, symbol="x"),
@@ -69,7 +115,21 @@ def plot_energy_trend(daily, anomalies=None):
     return fig
 
 def plot_material_pie(input_by_type):
-    df = pd.DataFrame({"type": list(input_by_type.keys()), "tons": list(input_by_type.values())})
+    if input_by_type is None or len(input_by_type) == 0:
+        return None
+    if isinstance(input_by_type, pd.Series):
+        names = list(input_by_type.index.astype(str))
+        vals = list(input_by_type.values)
+    elif isinstance(input_by_type, dict):
+        names = list(input_by_type.keys())
+        vals = list(input_by_type.values())
+    else:
+        try:
+            names = list(input_by_type.keys())
+            vals = list(input_by_type.values())
+        except Exception:
+            return None
+    df = pd.DataFrame({"type": names, "tons": vals})
     fig = px.pie(
         df, names="type", values="tons",
         color_discrete_sequence=[COLOR_PALETTE["orange"], COLOR_PALETTE["grey"], COLOR_PALETTE["background"]],
@@ -84,6 +144,8 @@ def plot_material_pie(input_by_type):
     return fig
 
 def plot_material_yield(yield_val, loss_pct):
+    if yield_val is None or loss_pct is None:
+        return None
     fig = go.Figure(go.Indicator(
         mode="gauge+number+delta",
         value=yield_val * 100,
@@ -128,6 +190,8 @@ def plot_sankey():
     return fig
 
 def plot_scenario_roi(scenarios):
+    if not scenarios or len(scenarios) == 0:
+        return None
     names = [s["name"] for s in scenarios]
     cost_save = [s["cost_savings_percentage"] for s in scenarios]
     fig = px.bar(
