@@ -2,8 +2,10 @@ import pandas as pd
 import numpy as np
 
 def generate_random_datasets(n_hours=24):
-    # Energy Consumption
+    # Generate hourly timestamps
     times = pd.date_range("2025-07-01", periods=n_hours, freq="H")
+    
+    # Energy Consumption Data
     energy_consumption = pd.DataFrame({
         "timestamp": times,
         "kwh_consumed": np.random.normal(2200, 200, size=n_hours).round(),
@@ -11,21 +13,21 @@ def generate_random_datasets(n_hours=24):
         "power_factor": np.random.uniform(0.85, 0.96, size=n_hours).round(2),
     })
 
-    # Production
+    # Production Data
     production = pd.DataFrame({
         "timestamp": times,
         "production_tons": np.random.normal(5.0, 0.4, size=n_hours).round(2),
         "product_type": "SiMn",
     })
 
-    # Material Input
+    # Material Input Data
     material_input = pd.DataFrame({
         "timestamp": np.repeat(times[0], 3),
         "material_type": ["Manganese Ore", "Silica", "Coal"],
         "quantity_tons": np.random.uniform(1, 5, size=3).round(2),
     })
 
-    # Material Output
+    # Material Output Data
     material_output = pd.DataFrame({
         "timestamp": times[:3],
         "product_type": "SiMn",
@@ -45,7 +47,9 @@ def generate_random_datasets(n_hours=24):
     # Process Data
     process_data = pd.DataFrame({
         "timestamp": times,
-        "process_area": np.random.choice(["Raw Material Handling", "Furnace", "Conveyor"], size=n_hours),
+        "process_area": np.random.choice(
+            ["Raw Material Handling", "Furnace", "Conveyor"], size=n_hours
+        ),
         "uptime_hours": np.random.uniform(0.9, 1.0, size=n_hours).round(2),
         "total_hours": 1.0,
         "batch_weight_actual": np.random.normal(5.75, 0.1, size=n_hours).round(2),
