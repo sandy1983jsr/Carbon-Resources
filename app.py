@@ -223,11 +223,20 @@ if st.button("Run Analysis"):
 
     with tab9:
         st.header("📊 Benchmarking")
-        st.info("Benchmarking module is currently unavailable.")
-        st.header("📝 Action Tracker")
-        st.info("Action Tracker module is currently unavailable.")
+        if 'benchmark_data' in datasets and not datasets['benchmark_data'].empty:
+            st.dataframe(datasets['benchmark_data'])
+            # Optionally add a bar chart or other visualization
+        else:
+            st.info("No benchmarking data available.")
 
-    st.success("Analysis complete! Explore the tabs above for results.")
+        st.header("📝 Action Tracker")
+        if 'action_events' in datasets and not datasets['action_events'].empty:
+            st.dataframe(datasets['action_events'])
+        else:
+            st.info("No action tracker events available.")
+            st.header("📝 Action Tracker")
+
+st.success("Analysis complete! Explore the tabs above for results.")
 
 else:
     st.info("Upload all required CSVs or select random demo data, then click **Run Analysis**.")
