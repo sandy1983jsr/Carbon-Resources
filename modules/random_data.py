@@ -19,7 +19,6 @@ def generate_random_datasets(n_hours=24*7, freq='H'):
     # Energy Consumption: each area has a distinct pattern
     energy_consumption = []
     for area in areas:
-        # Simulate base consumption plus daily and random fluctuations
         base = np.random.uniform(900, 1100)
         daily_cycle = 100 * np.sin(np.linspace(0, 6*np.pi, n_hours))  # 3 days cycle
         random = np.random.normal(0, 60, n_hours)
@@ -37,7 +36,6 @@ def generate_random_datasets(n_hours=24*7, freq='H'):
     prod = []
     for t in timestamps:
         shift = 1 if (t.hour >= 6 and t.hour < 18) else 2
-        # Simulate downtime every 30th hour
         is_running = (t.hour % 30 != 0)
         amount = np.random.uniform(15, 25) if is_running else 0
         prod.append({
