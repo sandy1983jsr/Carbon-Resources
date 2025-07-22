@@ -114,6 +114,8 @@ class DataLoader:
         # Add derived columns if needed
         if 'add_columns' in preprocessing_config:
             for new_col, formula in preprocessing_config['add_columns'].items():
+                # This is a simple example - would need a more robust formula parser
+                # for complex calculations
                 if 'ratio' in formula:
                     col1, col2 = formula['ratio']
                     if col1 in df.columns and col2 in df.columns:
@@ -135,15 +137,15 @@ class DataLoader:
         Returns:
             Derived dataframe
         """
-        # Aggregation derivation
+        # This is a placeholder implementation - would need to expand
+        # based on actual derivation needs
         if derived_info.get('type') == 'aggregate':
             groupby_cols = derived_info.get('groupby', [])
             agg_dict = derived_info.get('aggregations', {})
             return source_df.groupby(groupby_cols).agg(agg_dict).reset_index()
-        
-        # Filter derivation
         elif derived_info.get('type') == 'filter':
             filter_cond = derived_info.get('condition', {})
+            # Very simplified filter implementation - would need to be more robust
             filtered_df = source_df
             for col, value in filter_cond.items():
                 if col in source_df.columns:
@@ -152,15 +154,6 @@ class DataLoader:
                     else:
                         filtered_df = filtered_df[filtered_df[col] == value]
             return filtered_df
-        
-        # Time-based derivation
-        elif derived_info.get('type') == 'time_transform':
-            if 'timestamp' in source_df.columns:
-                df = source_df.copy()
-                df['hour'] = pd.to_datetime(df['timestamp']).dt.hour
-                df['day'] = pd.to_datetime(df['timestamp']).dt.day_name()
-                df['month'] = pd.to_datetime(df['timestamp']).dt.month
-                return df
         
         # Default: return copy of source
         return source_df.copy()
