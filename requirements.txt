@@ -1,8 +1,8 @@
 streamlit
 pandas
 pyyaml
-plotly
 numpy
+plotly
 scikit-learn
 matplotlib
 seaborn
