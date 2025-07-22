@@ -14,11 +14,10 @@ from modules.furnace_optimization import FurnaceOptimization
 from modules.electrode_optimization import ElectrodeOptimization
 from modules.process_integration import ProcessIntegration
 from modules.what_if_engine import WhatIfEngine
-from modules.benchmarking import Benchmarking
 from modules.action_tracker import ActionTracker
 import modules.visualization as visualization
 import modules.recommendations as recommendations
-# Validation removed
+# Benchmarking import removed
 
 st.set_page_config(page_title="Ferro Alloy Consulting Dashboard", layout="wide")
 st.title("Ferro Alloy Consulting Dashboard")
@@ -122,8 +121,8 @@ if st.button("Run Analysis"):
     scenarios = whatif.generate_scenarios()
     whatif_results = whatif.run_scenarios(scenarios)
     recs = recommendations.Recommendations(datasets).generate()
-    benchmarking_results = Benchmarking(datasets).compare()
     actions = ActionTracker().get_actions()
+    # Benchmarking removed
 
     # --- Dashboard Tabs ---
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
@@ -221,7 +220,7 @@ if st.button("Run Analysis"):
 
     with tab9:
         st.header("📊 Benchmarking")
-        st.write(benchmarking_results)
+        st.info("Benchmarking module is currently unavailable.")
         st.header("📝 Action Tracker")
         st.write(actions)
         if st.button("Add Action"):
