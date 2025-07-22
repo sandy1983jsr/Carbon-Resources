@@ -52,6 +52,32 @@ def generate_random_datasets(n_hours=24):
         "batch_weight_target": 5.7
     })
 
+    # Estimated Savings Data (cumulative over time)
+    estimated_savings = pd.DataFrame({
+        "Date": times,
+        "Cumulative Savings": np.cumsum(np.random.uniform(30, 120, n_hours)).round(2),
+        "Comment": ["Energy optimization"] * n_hours
+    })
+
+    # Benchmarking Data
+    benchmarking_data = pd.DataFrame({
+        "metric": ["energy_intensity", "material_yield", "equip_util", "paste_consumption"],
+        "benchmark_value": [11800, 0.91, 0.97, 11.3],
+        "unit": ["kWh/ton", "", "", "kg/ton"]
+    })
+
+    # Action Tracker Data
+    action_tracker = pd.DataFrame({
+        "timestamp": np.random.choice(times, 10),
+        "action": np.random.choice([
+            "Routine Check", "Electrode Change", "Slag Tap", 
+            "Temp Adjustment", "Parameter Review"], size=10),
+        "status": np.random.choice([
+            "Completed", "Pending", "In Progress"], size=10),
+        "notes": np.random.choice([
+            "", "All OK", "Follow-up needed", "Delayed due to supply"], size=10)
+    }).sort_values("timestamp").reset_index(drop=True)
+
     return {
         "energy_consumption": energy_consumption,
         "production": production,
@@ -59,4 +85,7 @@ def generate_random_datasets(n_hours=24):
         "material_output": material_output,
         "furnace_data": furnace_data,
         "process_data": process_data,
+        "estimated_savings": estimated_savings,
+        "benchmark_data": benchmarking_data,
+        "action_events": action_tracker,
     }
