@@ -1,3 +1,5 @@
+import numpy as np
+
 class WhatIfEngine:
     def __init__(self, datasets):
         self.datasets = datasets
@@ -152,5 +154,59 @@ class WhatIfEngine:
         ]
 
     def run_scenarios(self, scenarios):
-        self.results = {"scenarios": scenarios}
+        # Calculate baseline totals from datasets, fallback to None if missing
+        energy_total = None
+        material_input_total = None
+        material_output_total = None
+        cost_total = None  # You can wire up actual cost data if available
+
+        # Energy total (kWh)
+        if 'energy_consumption' in self.datasets and self.datasets['energy_consumption'] is not None:
+            energy_total = self.datasets['energy_consumption']['kwh_consumed'].sum()
+        # Material input/output totals (tons)
+        if 'material_input' in self.datasets and self.datasets['material_input'] is not None:
+            material_input_total = self.datasets['material_input']['quantity_tons'].sum()
+        if 'material_output' in self.datasets and self.datasets['material_output'] is not None:
+            material_output_total = self.datasets['material_output']['quantity_tons'].sum()
+        # Cost: if you have cost in your data, sum it here.
+        if 'cost_data' in self.datasets and self.datasets['cost_data'] is not None:
+            cost_total = self.datasets['cost_data']['cost'].sum()
+
+        results = []
+        for scenario in scenarios:
+            sim = scenario.copy()
+            # Energy simulation
+            if energy_total is not None:
+                savings = scenario.get('energy_savings_percentage', 0) / 100
+                sim['simulated_energy_total'] = round(energy_total * (1 - savings), 2)
+                sim['energy_savings_kwh'] = round(energy_total * savings, 2)
+            else:
+                sim['simulated_energy_total'] = None
+                sim['energy_savings_kwh'] = None
+            # Material simulation
+            if material_input_total is not None:
+                mat_savings = scenario.get('material_savings_percentage', 0) / 100
+                sim['simulated_material_input_total'] = round(material_input_total * (1 - mat_savings), 2)
+                sim['material_input_savings_tons'] = round(material_input_total * mat_savings, 2)
+            else:
+                sim['simulated_material_input_total'] = None
+                sim['material_input_savings_tons'] = None
+            if material_output_total is not None:
+                mat_savings = scenario.get('material_savings_percentage', 0) / 100
+                sim['simulated_material_output_total'] = round(material_output_total * (1 + mat_savings), 2)
+                sim['material_output_gain_tons'] = round(material_output_total * mat_savings, 2)
+            else:
+                sim['simulated_material_output_total'] = None
+                sim['material_output_gain_tons'] = None
+            # Cost simulation
+            if cost_total is not None:
+                cost_savings = scenario.get('cost_savings_percentage', 0) / 100
+                sim['simulated_cost_total'] = round(cost_total * (1 - cost_savings), 2)
+                sim['cost_savings_value'] = round(cost_total * cost_savings, 2)
+            else:
+                sim['simulated_cost_total'] = None
+                sim['cost_savings_value'] = None
+            results.append(sim)
+
+        self.results = {"scenarios": results}
         return self.results
