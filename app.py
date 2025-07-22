@@ -59,7 +59,13 @@ if st.button("Run Analysis"):
         st.success("Random demo data generated!")
         for k, df in datasets.items():
             st.write(f"**{k}** sample data:")
-            st.dataframe(df.head())
+            
+            if isinstance(df, pd.DataFrame):
+                st.dataframe(df.head())
+            elif isinstance(df, list):
+                st.write(df)
+            else:
+                st.info("No data available for this section.")
     else:
         # Save uploaded files to temp directory
         temp_dir = tempfile.mkdtemp()
